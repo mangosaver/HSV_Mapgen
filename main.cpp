@@ -10,7 +10,11 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-std::string fileName = "C:\\Users\\Cale\\CLionProjects\\HSV_Mapper\\pollard2.png";
+#include "loadShader.h"
+
+#define FRAMEBUFFER_WRITE false
+
+std::string fileName = "C:\\Users\\Cale\\Desktop\\IdeaProjects\\HSV_Mapper\\HSV_Mapper\\pollard2.png";
 
 void error_callback(int error, const char* description) {
   fprintf(stderr, "Error: %s\n", description);
@@ -29,7 +33,13 @@ void screenshot(int w, int h) {
 
   unsigned char pixels[w * h * comp];
 
-  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  // TODO: look into https://stackoverflow.com/questions/4029870/how-to-create-a-dynamic-array-of-integers
+
+  GLubyte * data = new GLubyte[w * h * comp];
+
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+  std::cout << "PIXELS: " << data[0] << std::endl;
 
   std::cout << "Writing PNG" << std::endl;
 
@@ -38,6 +48,7 @@ void screenshot(int w, int h) {
 
 void setWindowHints() {
 //  glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+  // OpenGL 3.3
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -74,6 +85,7 @@ int main() {
   int w, h;
   int comp;
 
+  stbi_set_flip_vertically_on_load(true);
   unsigned char * image = stbi_load(fileName.c_str(), &w, &h, &comp, STBI_rgb_alpha);
 
   if (!image) {
@@ -91,12 +103,11 @@ int main() {
   std::cout << "Height: " << h << std::endl;
 
   // generate texture
-
-  GLuint tex;
-  glGenTextures(1, &tex);
+  GLuint textureID;
+  glGenTextures(1, &textureID);
 
   // TODO: make sure that all these function calls are coming from the same place
-  glBindTexture(GL_TEXTURE_2D, tex);
+  glBindTexture(GL_TEXTURE_2D, textureID);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
@@ -112,43 +123,124 @@ int main() {
 
   std::cout << "Created texture" << std::endl;
 
-  // init framebuffer
-  GLuint framebufferTarget;
-  glGenFramebuffers(1, &framebufferTarget);
-  glBindFramebuffer(GL_FRAMEBUFFER, framebufferTarget);
+  // FIXME: framebuffer stuff (it definitely does something, as nothing will draw with this)
+//  GLuint framebufferTarget;
+//  glGenFramebuffers(1, &framebufferTarget);
+//  glBindFramebuffer(GL_FRAMEBUFFER, framebufferTarget);
+//
+//  std::cout << "Created framebuffer" << std::endl;
+//
+//  glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textureID, 0);
+//
+//  const GLenum buffers[]{ GL_COLOR_ATTACHMENT0 };
+//
+//  // TODO: 3 draw buffers
+//  glDrawBuffers(1, buffers);
+//
+//  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+//    std::cout << "Unable to create framebuffer target" << std::endl;
+//    return -4;
+//  }
+//
+//  std::cout << "Framebuffer target created!" << std::endl;
 
-  std::cout << "Created framebuffer" << std::endl;
+  // FIXME: this is just for testing
+  GLuint programId = LoadShaders("vertex.glsl", "frag.glsl");
 
-  // upload data to shaders
-  // run
+  GLuint vertexArrId;
+  glGenVertexArrays(1, &vertexArrId);
+  glBindVertexArray(vertexArrId);
 
-  glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, tex, 0);
+  // An array of 3 vectors which represents 3 vertices
+  static const GLfloat g_vertex_buffer_data[] = {
+      -1.0f, -1.0f, 0.0f,
+      1.0f, -1.0f, 0.0f,
+      0.0f,  1.0f, 0.0f,
+  };
 
-  const GLenum buffers[]{ GL_COLOR_ATTACHMENT0 };
+  float texCoords[] = {
+      0.0f, 0.0f,  // lower-left corner
+      1.0f, 0.0f,  // lower-right corner
+      0.5f, 1.0f   // top-center corner
+  };
 
-  // TODO: 3 draw buffers
-  glDrawBuffers(1, buffers);
+  float vertices[] = {
+      // positions          // colors           // texture coords
+      0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+      0.5f, -0.5f, 0.0f,   0.0f, 2.0f, 0.0f,   1.0f, 0.0f,   // bottom right
+      -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
+      -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left
+  };
 
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    std::cout << "Unable to create framebuffer target" << std::endl;
-    return -4;
-  }
+  unsigned int indices[] = {
+      0, 1, 3, // first triangle
+      1, 2, 3  // second triangle
+  };
 
-  std::cout << "Framebuffer target created!" << std::endl;
+  // TODO: look into EBO
+  GLuint VBO, VAO, EBO; // Generate 1 buffer
+  glGenVertexArrays(1, &VAO);
+  glGenBuffers(1, &VBO);
+  glGenBuffers(1, &EBO);
+  glBindBuffer(GL_ARRAY_BUFFER, VBO); // Bind the buffer
+  glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
 
-  // Draw the texture to the framebuffer
+  glBindVertexArray(VAO);
+
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+  // position attribute
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*) 0);
+  glEnableVertexAttribArray(0);
+  // color attribute
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*) (3 * sizeof(float)));
+  glEnableVertexAttribArray(1);
+  // texture coord attribute (6 for two triangles)
+  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*) (6 * sizeof(float)));
+  glEnableVertexAttribArray(2);
+
+  // vsync, clear color
+  glfwSwapInterval(1);
+  glClearColor(0, 0, 0, 1);
+  glfwSetWindowSize(window, w, h);
+
+  bool screenshotted = false;
+
+  glUseProgram(programId);
+  glUniform1i(glGetUniformLocation(programId, "texImage"), 0);
+
+  std::cout << "Starting loop..." << std::endl;
 
   while (!glfwWindowShouldClose(window)) {
+    glClear(GL_COLOR_BUFFER_BIT);
     glfwPollEvents();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, 1000, 1000);
-  }
 
-  //screenshot(w, h);
+    std::cout << "Looping..." << std::endl;
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    glUseProgram(programId);
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+    // glDrawArrays(GL_TRIANGLES, 0, 6);
+
+//    if (!screenshotted && (screenshotted = true))
+//      screenshot(100, 100);
+    glfwSwapBuffers(window);
+  }
 
   std::cout << "Cleaning up..." << std::endl;
 
-  glDeleteFramebuffers(1, &framebufferTarget);
+  // FIXME: be sure to re-enable this
+//  glDeleteFramebuffers(1, &framebufferTarget);
+  glDeleteBuffers(1, &VBO);
+  glDeleteProgram(programId);
 
   glfwDestroyWindow(window);
 
