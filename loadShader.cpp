@@ -12,10 +12,12 @@
 
 #include "loadShader.h"
 
+const std::string shaderDir = R"(C:\Users\Cale\CLionProjects\HSV_Mapper\shaders\)";
+
 GLuint LoadShaders(std::string vertex_file_path, std::string fragment_file_path) {
 
-  vertex_file_path = "C:\\Users\\Cale\\Desktop\\IdeaProjects\\HSV_Mapper\\HSV_Mapper\\shaders\\" + vertex_file_path;
-  fragment_file_path = "C:\\Users\\Cale\\Desktop\\IdeaProjects\\HSV_Mapper\\HSV_Mapper\\shaders\\" + fragment_file_path;
+  vertex_file_path = shaderDir + vertex_file_path;
+  fragment_file_path = shaderDir + fragment_file_path;
 
   // Create the shaders
   GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
