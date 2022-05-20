@@ -27,6 +27,61 @@
 
 std::string fileName = R"(C:\Users\Cale\CLionProjects\HSV_Mapper\pollard2.png)";
 
+std::string compList = "[hue, val, val]";
+
+short WHITESPACE = 0, ALPHA = 1, COMMA = 2;
+
+int map_string_to_flag(std::string str) {
+  if (str == "hue" || str == "h")
+    return 0;
+  if (str == "sat" || str == "saturation")
+    return 1;
+  if (str == "val" || str == "value" || str == "lightness")
+    return 2;
+  return -1;
+}
+
+int* get_flags_from_comp_list() {
+  if (compList[0] != '[' || compList.back() != ']') {
+    std::cerr << "Components list must be enclosed in brackets, i.e. '[hue, sat, val]'" << std::endl;
+    return NULL;
+  }
+
+  std::string current = "";
+  std::vector<std::string> strs;
+
+  short expecting = ALPHA;
+  for (int i = 1; i < compList.size() - 1; i++) {
+    char c = compList[i];
+
+    if (c == ' ')
+      continue;
+
+    if (std::isalpha(c)) {
+      current += c;
+    } else if (c == ',') {
+      strs.push_back(current);
+      current = "";
+    } else {
+      std::cerr << "Illegal character '" << c << "' in component list" << std::endl;
+      return NULL;
+    }
+  }
+
+  if (!current.empty())
+    strs.push_back(current);
+
+  int* out = new int[strs.size()];
+
+  for (int i = 0; i < strs.size(); i++) {
+    out[i] = map_string_to_flag(strs[i]);
+    if (out[i] == -1)
+      std::cerr << "Invalid string '" << strs[i] << "'" << std::endl;
+  }
+
+  return out;
+}
+
 void error_callback(int error, const char *description) {
   fprintf(stderr, "Error: %s\n", description);
 }
@@ -125,12 +180,18 @@ int main(int argc, char **argv) {
     return -3;
   }
 
+
+  auto x = get_flags_from_comp_list();
+  std::cout << x[0] << " " << x[1] << " " << x[2] << std::endl;
+
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   // stbi image loading
   int w, h;
   int comp;
+
+  const int rows = 2, cols = 2;
 
   stbi_set_flip_vertically_on_load(false);
   unsigned char *image = stbi_load(fileName.c_str(), &w, &h, &comp, STBI_rgb_alpha);
@@ -176,19 +237,17 @@ int main(int argc, char **argv) {
 
   // TODO: determine if mipmaps should be generated
   glGenerateMipmap(GL_TEXTURE_2D);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w * 3, h, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w * cols, h * rows, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
 
   // TODO: determine if this should be called immediately after glTexImage2D
   stbi_image_free(image);
 
   // Texture has been created
 
-  const int numImages = 3;
-
   glfwSwapInterval(1);
 //  glfwSetWindowSize(window, w * numImages, h);
 
-  glViewport(0, 0, w * numImages, h);
+  glViewport(0, 0, w * cols, h * rows);
 
   // FIXME: framebuffer stuff (it definitely does something, as nothing will draw with this)
   GLuint framebufferTarget;
@@ -221,18 +280,18 @@ int main(int argc, char **argv) {
 
   GLuint MatrixID = glGetUniformLocation(programId, "MVP");
 
-  glm::mat4 Projection = glm::ortho(0.0f, (float) w * numImages, 0.0f, (float) h, 0.0f, 100.0f);
+  glm::mat4 Projection = glm::ortho(0.f, (float) w * cols, 0.f, (float) h * rows, 0.0f, 100.0f);
 
   // TODO: auto-generate buffers
 
-  auto myBuffer0 = new VertexBuffer(0.f, 0.f, w, h);
-  auto myBuffer1 = new VertexBuffer(w, 0.f, w, h);
-  auto myBuffer2 = new VertexBuffer(w * 2.f, 0.f, w, h);
-
   std::vector<VertexBuffer*> vertexBuffers; // TODO: validate that this is correct
-  vertexBuffers.push_back(myBuffer0);
-  vertexBuffers.push_back(myBuffer1);
-  vertexBuffers.push_back(myBuffer2);
+
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < cols; j++) {
+      auto tmpBuffer = new VertexBuffer(w * j, h * i, w, h);
+      vertexBuffers.push_back(tmpBuffer);
+    }
+  }
 
   glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &Projection[0][0]);
 
@@ -248,8 +307,10 @@ int main(int argc, char **argv) {
 
   glUseProgram(programId);
 
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < vertexBuffers.size(); i++) {
     glUniform1i(glGetUniformLocation(programId, "compIdx"), i);
+    // TODO: render blank geometry instead of a texture
+    glUniform1f(glGetUniformLocation(programId, "alpha"), i == vertexBuffers.size() - 1 ? 0 : 1);
     vertexBuffers.at(i)->bind();
 
     glEnableVertexAttribArray(0);
@@ -264,7 +325,7 @@ int main(int argc, char **argv) {
   if (SEPARATE_IMG_WRITE)
     separateScreenshot(w, h);
   else
-    screenshot(w * numImages, h);
+    screenshot(w * cols, h * rows);
 
   std::cout << "Cleaning up..." << std::endl;
 

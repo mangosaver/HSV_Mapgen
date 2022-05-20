@@ -6,6 +6,7 @@ layout (location = 0) out vec4 color;
 uniform sampler2D texImage;
 
 uniform int compIdx;
+uniform float alpha;
 
 // TODO: cite sources
 vec3 rgb2hsv(vec3 c) {
@@ -27,5 +28,5 @@ vec3 hsv2rgb(vec3 c) {
 void main() {
     vec4 texColor = texture(texImage, TexCoord);
     vec3 hsv = rgb2hsv(texColor.rgb);
-    color = vec4(vec3(hsv[compIdx]), 1.0f);
+    color = vec4(vec3(hsv[compIdx]), alpha);
 }
