@@ -5,7 +5,6 @@
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 
-#include <chrono>
 #include <vector>
 
 #include "glm/glm/glm.hpp"
@@ -23,15 +22,22 @@
 
 #include "loadShader.h"
 
-#define SEPARATE_IMG_WRITE true
+#include "consts.h"
+#include "Texture.h"
+
+bool SEPARATE_IMG_WRITE = true;
+
+int rows = 1, cols = 3;
 
 std::string fileName = R"(C:\Users\Cale\CLionProjects\HSV_Mapper\pollard2.png)";
 
 std::string compList = "[hue, val, val]";
 
-short WHITESPACE = 0, ALPHA = 1, COMMA = 2;
+int numComps = 3;
 
-int map_string_to_flag(std::string str) {
+short COMMA = 2;
+
+int map_string_to_flag(const std::string& str) {
   if (str == "hue" || str == "h")
     return 0;
   if (str == "sat" || str == "saturation")
@@ -41,16 +47,16 @@ int map_string_to_flag(std::string str) {
   return -1;
 }
 
-int* get_flags_from_comp_list() {
+int *get_flags_from_comp_list() {
+  std::cout << "Components list: " << compList << std::endl;
   if (compList[0] != '[' || compList.back() != ']') {
     std::cerr << "Components list must be enclosed in brackets, i.e. '[hue, sat, val]'" << std::endl;
     return NULL;
   }
 
-  std::string current = "";
+  std::string current;
   std::vector<std::string> strs;
 
-  short expecting = ALPHA;
   for (int i = 1; i < compList.size() - 1; i++) {
     char c = compList[i];
 
@@ -71,37 +77,35 @@ int* get_flags_from_comp_list() {
   if (!current.empty())
     strs.push_back(current);
 
-  int* out = new int[strs.size()];
+  int *out = new int[strs.size()];
+  numComps = strs.size();
 
   for (int i = 0; i < strs.size(); i++) {
     out[i] = map_string_to_flag(strs[i]);
-    if (out[i] == -1)
-      std::cerr << "Invalid string '" << strs[i] << "'" << std::endl;
+    if (out[i] == -1) {
+      std::cerr << "Invalid component string '" << strs[i] << "'" << std::endl;
+      return NULL;
+    }
   }
 
   return out;
 }
 
 void error_callback(int error, const char *description) {
-  fprintf(stderr, "Error: %s\n", description);
+  fprintf(stderr, "Error: (%d) %s\n", error, description);
 }
 
-void framebufferSizeChanged(GLFWwindow *window, int width, int height) {
-  std::cout << "Framebuffer size changed!" << std::endl;
-  std::cout << "Width: " << width << std::endl;
-  std::cout << "Height: " << height << std::endl;
-  glViewport(0, 0, width, height);
-}
-
-void separateScreenshot(int w, int h) {
+void separateScreenshot(const std::vector<VertexBuffer*>& buffers, int w, int h) {
   int comp = STBI_rgb_alpha;
 
-  const char * names[] = {"hue", "sat", "val"};
+  const char *names[] = {"hue", "sat", "val"};
 
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < buffers.size(); i++) {
+    auto buffer = buffers[i];
+
     auto *data = new GLubyte[w * h * comp];
 
-    glReadPixels(w * i, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glReadPixels(buffer->getX(), buffer->getY(), w, h, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
     if (glGetError() != 0) {
       std::cout << "There was an error reading the framebuffer" << std::endl;
@@ -141,47 +145,117 @@ void screenshot(int w, int h) {
 
 void setWindowHints() {
   glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-  // OpenGL 3.3
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // OpenGL 3.3
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 }
 
+void parseDims(const std::string& dims) {
+  if (dims.length() < 3) {
+    std::cerr << "Dimensions must be 2 numbers separated by an 'x'" << std::endl;
+    return;
+  }
+  int w, h;
+  std::string wTemp, hTemp;
+  bool fillWidth = true;
+  for (char dim : dims) {
+    if (dim == 'x') {
+      if (fillWidth) {
+        fillWidth = false;
+      } else {
+        std::cerr << "Error parsing dimensions" << std::endl;
+        return;
+      }
+      continue;
+    }
+    if (fillWidth)
+      wTemp += dim;
+    else
+      hTemp += dim;
+  }
+  try {
+    w = std::stoi(wTemp);
+    h = std::stoi(hTemp);
+  } catch (const std::invalid_argument& ia) {
+    std::cerr << ia.what() << std::endl;
+    return;
+  }
+  std::cout << "w: " << w << std::endl;
+  std::cout << "h: " << h << std::endl;
+  cols = w;
+  rows = h;
+}
+
+bool parseArgs(int argc, char **argv) {
+  for (int i = 1; i < argc; i++) {
+    if (std::string(argv[i]) == "-d") {
+      if (i + 1 == argc) {
+        std::cout << "Expected dimensions" << std::endl;
+        return 3;
+      }
+      std::string dims = argv[i + 1];
+      std::cout << "Parsing dimensions: " << dims << std::endl;
+      parseDims(dims); // TODO: handle parseDims() errors here
+      SEPARATE_IMG_WRITE = false;
+      i++;
+    } else if (std::string(argv[i]) == "-o") {
+      if (i + 1 == argc) {
+        std::cout << "Expected filename" << std::endl;
+        return 4;
+      }
+      std::string outputFile = argv[i + 1];
+      std::cout << "Writing to output file: " << outputFile << std::endl;
+      // TODO: implement this
+      i++;
+    } else if (std::string(argv[i]) == "-c") {
+      if (i + 1 == argc) {
+        std::cout << "Expected component list" << std::endl;
+        return 5;
+      }
+      compList = argv[i + 1];
+      i++;
+    } else {
+      // Assume that the argument is an image
+      std::string userImg = argv[i];
+      fileName = userImg;
+      std::cout << "Using user-specified image: " << userImg << std::endl;
+    }
+  }
+
+  return false;
+}
+
 int main(int argc, char **argv) {
+  if (parseArgs(argc, argv)) {
+    return -5;
+  }
+
   if (!glfwInit()) {
-    std::cout << "Unable to initialize GLFW context" << std::endl;
-    return -1;
+    std::cerr << "Unable to initialize GLFW context" << std::endl;
+    return GLFW_INIT_FAILURE;
   }
-
-  // Loading an image from command line
-  if (argc == 2) {
-    std::string userImg = argv[1];
-    fileName = userImg;
-    std::cout << "Using user-specified image: " << userImg << std::endl;
-  }
-
-  setWindowHints();
 
   glfwSetErrorCallback(error_callback);
 
-  GLFWwindow *window = glfwCreateWindow(100, 100, "HSV Mapper", nullptr, nullptr);
-
-  glfwSetFramebufferSizeCallback(window, framebufferSizeChanged);
+  setWindowHints();
+  GLFWwindow *window = glfwCreateWindow(1, 1, "", nullptr, nullptr);
 
   if (!window) {
     std::cout << "Unable to initialize GLFW window" << std::endl;
-    return -1;
+    return GLFW_WINDOW_INIT_FAILURE;
   }
 
   glfwMakeContextCurrent(window);
 
   if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
     std::cout << "Failed to initialize GLAD" << std::endl;
-    return -3;
+    return GLAD_INIT_FAILURE;
   }
 
-
   auto x = get_flags_from_comp_list();
+  if (x == NULL) {
+    return COMP_FLAGS_UNREADABLE;
+  }
   std::cout << x[0] << " " << x[1] << " " << x[2] << std::endl;
 
   glEnable(GL_BLEND);
@@ -190,8 +264,6 @@ int main(int argc, char **argv) {
   // stbi image loading
   int w, h;
   int comp;
-
-  const int rows = 2, cols = 2;
 
   stbi_set_flip_vertically_on_load(false);
   unsigned char *image = stbi_load(fileName.c_str(), &w, &h, &comp, STBI_rgb_alpha);
@@ -206,65 +278,35 @@ int main(int argc, char **argv) {
     return -2;
   }
 
+  glViewport(0, 0, w * cols, h * rows);
+
   std::cout << "Comp: " << comp << std::endl;
-  //stbi_write_png("test.png", w, h, STBI_rgb_alpha, image, STBI_rgb_alpha * w);
 
   // the image is now in memory
   std::cout << "Width: " << w << std::endl;
   std::cout << "Height: " << h << std::endl;
 
-  GLuint wcImage;
-  glGenTextures(1, &wcImage);
-  glGenerateMipmap(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, wcImage);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+  Texture wcTex, fbTex;
 
-  // generate texture
-  GLuint fbTexture;
-  glGenTextures(1, &fbTexture);
-
-  // TODO: make sure that all these function calls are coming from the same place
-  glBindTexture(GL_TEXTURE_2D, fbTexture);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-  // TODO: determine if mipmaps should be generated
-  glGenerateMipmap(GL_TEXTURE_2D);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w * cols, h * rows, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr);
-
-  // TODO: determine if this should be called immediately after glTexImage2D
+  wcTex.uploadData(w, h, image);
   stbi_image_free(image);
 
-  // Texture has been created
+  fbTex.uploadData(w * cols, h * rows, nullptr);
 
-  glfwSwapInterval(1);
-//  glfwSetWindowSize(window, w * numImages, h);
-
-  glViewport(0, 0, w * cols, h * rows);
-
-  // FIXME: framebuffer stuff (it definitely does something, as nothing will draw with this)
   GLuint framebufferTarget;
-
   glGenFramebuffers(1, &framebufferTarget);
   glBindFramebuffer(GL_FRAMEBUFFER, framebufferTarget);
 
   std::cout << "Created framebuffer" << std::endl;
 
-  glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, fbTexture, 0);
+  glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, fbTex.id, 0);
 
   const GLenum buffers[]{GL_COLOR_ATTACHMENT0};
   glDrawBuffers(1, buffers);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     std::cout << "Unable to create framebuffer target" << std::endl;
-    return -4;
+    return FRAMEBUFFER_CREATION_FAILURE;
   }
   std::cout << "Framebuffer target created!" << std::endl;
 
@@ -278,13 +320,12 @@ int main(int argc, char **argv) {
   glUseProgram(programId);
   glUniform1i(glGetUniformLocation(programId, "texImage"), 0);
 
-  GLuint MatrixID = glGetUniformLocation(programId, "MVP");
+  auto projMatrix = glm::ortho(0.f, (float) w * cols, 0.f, (float) h * rows, 0.0f, 100.0f);
 
-  glm::mat4 Projection = glm::ortho(0.f, (float) w * cols, 0.f, (float) h * rows, 0.0f, 100.0f);
+  glUniformMatrix4fv(glGetUniformLocation(programId, "MVP"), 1, GL_FALSE, &projMatrix[0][0]);
 
-  // TODO: auto-generate buffers
-
-  std::vector<VertexBuffer*> vertexBuffers; // TODO: validate that this is correct
+  // Generate buffers
+  std::vector<VertexBuffer *> vertexBuffers; // TODO: validate that this is correct
 
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
@@ -293,24 +334,23 @@ int main(int argc, char **argv) {
     }
   }
 
-  glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &Projection[0][0]);
-
-  std::cout << "Starting loop..." << std::endl;
-
-  auto startTime = std::chrono::system_clock::now();
-
-  glfwPollEvents();
+  std::cout << "Starting rendering..." << std::endl;
 
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, fbTexture);
-  glBindTexture(GL_TEXTURE_2D, wcImage);
+//  glBindTexture(GL_TEXTURE_2D, wcImage);
+
+  wcTex.bind();
 
   glUseProgram(programId);
 
   for (int i = 0; i < vertexBuffers.size(); i++) {
     glUniform1i(glGetUniformLocation(programId, "compIdx"), i);
     // TODO: render blank geometry instead of a texture
-    glUniform1f(glGetUniformLocation(programId, "alpha"), i == vertexBuffers.size() - 1 ? 0 : 1);
+    if (rows * cols > numComps && i == vertexBuffers.size() - 1)
+      glUniform1f(glGetUniformLocation(programId, "alpha"), 0.f);
+    else
+      glUniform1f(glGetUniformLocation(programId, "alpha"), 1.f);
+
     vertexBuffers.at(i)->bind();
 
     glEnableVertexAttribArray(0);
@@ -323,16 +363,15 @@ int main(int argc, char **argv) {
   }
 
   if (SEPARATE_IMG_WRITE)
-    separateScreenshot(w, h);
+    separateScreenshot(vertexBuffers, w, h);
   else
     screenshot(w * cols, h * rows);
 
   std::cout << "Cleaning up..." << std::endl;
 
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
   glDeleteFramebuffers(1, &framebufferTarget);
-  glDeleteTextures(1, &fbTexture);
+  fbTex.free();
+  wcTex.free();
   glDeleteProgram(programId);
 
   glfwDestroyWindow(window);

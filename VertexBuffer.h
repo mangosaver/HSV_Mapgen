@@ -18,6 +18,9 @@ public:
   VertexBuffer(float, float, uint16_t, uint16_t);
   ~VertexBuffer();
   void bind() const;
+
+  int getX();
+  int getY();
 };
 
 

@@ -4,7 +4,9 @@
 
 #include "VertexBuffer.h"
 
-VertexBuffer::VertexBuffer(float x, float y, uint16_t width, uint16_t height) {
+#include <stdio.h>
+
+VertexBuffer::VertexBuffer(float x, float y, uint16_t width, uint16_t height) : x(x), y(y) {
   glGenBuffers(1, &id);
   glBindBuffer(GL_ARRAY_BUFFER, id); // TODO: remove bind call here
   auto w = (GLfloat) width;
@@ -28,4 +30,12 @@ void VertexBuffer::bind() const {
 
 VertexBuffer::~VertexBuffer() {
 
+}
+
+int VertexBuffer::getX() {
+  return x;
+}
+
+int VertexBuffer::getY() {
+  return y;
 }

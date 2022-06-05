@@ -19,7 +19,6 @@ endif()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
-option(GLFW_BUILD_EXAMPLES "Build the GLFW example programs" ON)
 option(GLFW_BUILD_TESTS "Build the GLFW test programs" ON)
 option(GLFW_BUILD_DOCS "Build the GLFW documentation" ON)
 option(GLFW_INSTALL "Generate installation target" ON)
@@ -341,10 +340,6 @@ configure_file(src/glfw3.pc.in src/glfw3.pc @ONLY)
 # Add subdirectories
 #--------------------------------------------------------------------
 add_subdirectory(src)
-
-if (GLFW_BUILD_EXAMPLES)
-    add_subdirectory(examples)
-endif()
 
 if (GLFW_BUILD_TESTS)
     add_subdirectory(tests)
