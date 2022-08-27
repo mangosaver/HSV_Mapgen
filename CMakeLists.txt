@@ -17,12 +17,12 @@ include_directories("glfw-3.3.6/include")
 add_subdirectory("glm")
 
 add_executable(HSV_Mapper
-        main.cpp
+        src/main.cpp
         glad/glad.c
-        loadShader.cpp
-        loadShader.h
-        stb_image.h
-        stb_image_write.h VertexBuffer.cpp VertexBuffer.h BufferRenderer.cpp BufferRenderer.h consts.h Texture.cpp Texture.h)
+        src/loadShader.cpp
+        src/loadShader.h
+        src/stb_image.h
+        src/stb_image_write.h src/VertexBuffer.cpp src/VertexBuffer.h src/BufferRenderer.cpp src/BufferRenderer.h src/consts.h src/Texture.cpp src/Texture.h src/utils.cpp src/utils.h)
 
 target_link_libraries(HSV_Mapper glfw ${GLFW_LIBRARIES})
 target_link_libraries(HSV_Mapper glfw ${OPENGL_glu_LIBRARY} ${GLFW_LIBRARIES})
