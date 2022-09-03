@@ -13,11 +13,11 @@ Texture::Texture() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
-void Texture::bind() {
+void Texture::bind() const {
   glBindTexture(GL_TEXTURE_2D, id);
 }
 
-void Texture::uploadData(int width, int height, unsigned char* data) {
+void Texture::uploadData(int width, int height, unsigned char* data) const {
   bind();
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 }

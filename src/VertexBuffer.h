@@ -15,12 +15,12 @@ private:
   std::array<GLfloat, 24> vertices;
   uint16_t x, y;
 public:
-  VertexBuffer(float, float, uint16_t, uint16_t);
+  VertexBuffer(uint16_t, uint16_t, uint16_t, uint16_t);
   ~VertexBuffer();
   void bind() const;
 
-  int getX();
-  int getY();
+  int getX() const;
+  int getY() const;
 };
 
 

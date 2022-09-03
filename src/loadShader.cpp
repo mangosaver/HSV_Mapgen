@@ -12,6 +12,7 @@
 
 #include "loadShader.h"
 
+// TODO: inline the shaders at compile time
 const std::string shaderDir = R"(C:\Users\Cale\CLionProjects\HSV_Mapper\shaders\)";
 
 GLuint LoadShaders(std::string vertex_file_path, std::string fragment_file_path) {

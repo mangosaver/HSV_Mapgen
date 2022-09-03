@@ -12,8 +12,8 @@ class Texture {
 public:
     GLuint id;
     Texture();
-    void bind();
-    void uploadData(int width, int height, unsigned char *data);
+    void bind() const;
+    void uploadData(int width, int height, unsigned char *data) const;
     void free();
 };
 

@@ -7,8 +7,9 @@ uniform sampler2D texImage;
 
 uniform int compIdx;
 uniform float alpha;
+uniform float blendOrig;
+uniform float blendRgbComp;
 
-// TODO: cite sources
 vec3 rgb2hsv(vec3 c) {
     vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
     vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
@@ -25,8 +26,16 @@ vec3 hsv2rgb(vec3 c) {
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
+vec3 interp(float a, vec3 b, float d) {
+    return vec3(a * (1.0 - d) + b.x * d,
+    a * (1.0 - d) + b.y * d,
+    a * (1.0 - d) + b.z * d);
+}
+
 void main() {
     vec4 texColor = texture(texImage, TexCoord);
     vec3 hsv = rgb2hsv(texColor.rgb);
-    color = vec4(vec3(hsv[compIdx]), alpha);
+    vec3 interpolated = interp(hsv[compIdx], texColor.rgb, blendOrig);
+    vec3 interpolated2 = interp(texColor[compIdx], interpolated, 1.0 - blendRgbComp);
+    color = vec4(interpolated2, alpha);
 }

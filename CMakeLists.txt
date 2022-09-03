@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(HSV_Mapper)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 
 find_package(OpenGL REQUIRED)
 
@@ -18,11 +18,10 @@ add_subdirectory("glm")
 
 add_executable(HSV_Mapper
         src/main.cpp
-        glad/glad.c
         src/loadShader.cpp
         src/loadShader.h
         src/stb_image.h
-        src/stb_image_write.h src/VertexBuffer.cpp src/VertexBuffer.h src/BufferRenderer.cpp src/BufferRenderer.h src/consts.h src/Texture.cpp src/Texture.h src/utils.cpp src/utils.h)
+        src/stb_image_write.h src/VertexBuffer.cpp src/VertexBuffer.h src/consts.h src/Texture.cpp src/Texture.h src/utils.cpp src/utils.h src/printHelp.h)
 
 target_link_libraries(HSV_Mapper glfw ${GLFW_LIBRARIES})
 target_link_libraries(HSV_Mapper glfw ${OPENGL_glu_LIBRARY} ${GLFW_LIBRARIES})
