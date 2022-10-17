@@ -1,10 +1,6 @@
 //
-// Created by Cale on 8/27/2022.
+// Created by Cale on 9/4/2022.
 //
-
-#ifndef HSV_MAPPER_PRINTHELP_H
-#define HSV_MAPPER_PRINTHELP_H
-
 #include <iostream>
 
 // Prints the program's usage guide
@@ -35,5 +31,3 @@ void printHelp() {
             << "  \t\t\t\t(Creates a collage of saturation, hue, and value vertically)\n"
             << std::endl;
 }
-
-#endif //HSV_MAPPER_PRINTHELP_H

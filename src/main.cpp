@@ -1,6 +1,5 @@
 #include <iostream>
 #include <vector>
-#include <chrono>
 
 #define GLFW_INCLUDE_NONE
 
@@ -12,78 +11,38 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 
-#include "stb_image.h"
+#include "../include/stb_image.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
-#include "stb_image_write.h"
+#include "../include/stb_image_write.h"
 
 #include "VertexBuffer.h"
 
-#include "loadShader.h"
+#include "../utils/load_shader.h"
 
 #include "consts.h"
 #include "Texture.h"
 
-#include "utils.h"
+#include "../utils/parse_utils.h"
+#include "../utils/config_utils.h"
 
-#include "printHelp.h"
+#include "../utils/print_help.h"
+#include "../utils/log_utils.h"
 
-// TODO: create config struct
+ProgramConfig myConfig;
 
-struct config {
-    bool separate_img_write;
-    bool single_channel;
-    int rows, cols;
-    std::string inputFile;
-    std::string outputFile;
-    std::string compList;
-};
-
-bool WRITE_JPEG = false;
-int jpegQuality = 100;
+bool IS_VERBOSE = false;
 
 long long startTimeMs;
 
 int maxWidth, maxHeight;
 
-bool SEPARATE_IMG_WRITE = true;
-bool USE_8_BIT_DEPTH = true; // for optimizing image size
-
-int rows = 1, cols = 3;
-
-std::vector<std::string> imageList;
-
-std::string listFileName;
-std::string fileName;
-std::string outputFile;
-
-std::string compList = "hue:sat:val";
-
-int numChannels = 4;
-
-int numComps = 0;
-
 GLuint framebufferTarget;
 
-std::string getOutputFileName(const std::string& inFile) {
-  std::string tmp = stripFileExt(inFile);
-  std::cout << "Stripped to " << tmp << std::endl;
-  if (tmp.empty()) { // handles cases where the input file is ".png" or similar
-    return getTimestampStr();
-  } else if (!SEPARATE_IMG_WRITE) {
-    tmp += "_" + getTimestampStr();
-  }
-  return tmp;
-}
-
-void error_callback(int error, const char *description) {
-  fprintf(stderr, "Error: (%d) %s\n", error, description);
-}
-
 void writeImage(const char *filename, int w, int h, int comp, const GLubyte *data) {
-  if (WRITE_JPEG)
-    stbi_write_jpg(filename, w, h, comp, data, jpegQuality);
+  if (myConfig.write_jpeg)
+    stbi_write_jpg(filename, w, h, comp, data, (int) myConfig.jpeg_quality);
   else
     stbi_write_png(filename, w, h, comp, data, w * comp);
   std::cout << "Wrote file " << filename << std::endl;
@@ -95,17 +54,16 @@ void separateScreenshot(const std::vector<VertexBuffer> &buffers, int w, int h, 
   // TODO: put this in utils
   const char *names[] = {"hue", "sat", "val", "rgb", "red", "green", "blue"};
 
-  auto *data = new GLubyte[w * h * numChannels];
+  std::cout << "numChannels: " << myConfig.numChannels << std::endl;
+
+  auto *data = new GLubyte[w * h * myConfig.numChannels];
 
   for (int i = 0; i < buffers.size(); i++) {
     auto buffer = buffers[i];
 
-    if (USE_8_BIT_DEPTH) {
-      glReadPixels(buffer.getX(), buffer.getY(), w, h, GL_RED, GL_UNSIGNED_BYTE, data);
-    } else {
-      glReadPixels(buffer.getX(), buffer.getY(), w, h, getColorFormatFromNumComponents(numChannels), GL_UNSIGNED_BYTE,
-                   data);
-    }
+    glReadPixels(buffer.getX(), buffer.getY(), w, h, getColorFormatFromNumComponents(myConfig.numChannels),
+                 GL_UNSIGNED_BYTE,
+                 data);
 
     auto err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -115,14 +73,10 @@ void separateScreenshot(const std::vector<VertexBuffer> &buffers, int w, int h, 
     }
 
     char filename[256];
-    auto extStr = WRITE_JPEG ? "jpeg" : "png";
+    auto extStr = myConfig.write_jpeg ? "jpeg" : "png";
 
-    sprintf(filename, "%s_%s.%s", outputFile.c_str(), names[comps[i]], extStr);
-    if (USE_8_BIT_DEPTH) {
-      writeImage(filename, w, h, 1, data);
-    } else {
-      writeImage(filename, w, h, numChannels, data);
-    }
+    sprintf(filename, "%s_%s.%s", myConfig.outputFile.c_str(), names[comps[i]], extStr);
+    writeImage(filename, w, h, myConfig.numChannels, data);
   }
   delete[] data;
 }
@@ -130,14 +84,11 @@ void separateScreenshot(const std::vector<VertexBuffer> &buffers, int w, int h, 
 void screenshotSingleBuffer(unsigned int w, unsigned int h) {
 
   std::cout << "Taking screenshotSingleBuffer: " << w << " x " << h << std::endl;
+  std::cout << "numChannels: " << myConfig.numChannels << std::endl;
 
-  auto *data = new GLubyte[w * h * numChannels];
+  auto *data = new GLubyte[w * h * myConfig.numChannels];
 
-  if (USE_8_BIT_DEPTH) {
-    glReadPixels(0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, data);
-  } else {
-    glReadPixels(0, 0, w, h, getColorFormatFromNumComponents(numChannels), GL_UNSIGNED_BYTE, data);
-  }
+  glReadPixels(0, 0, w, h, getColorFormatFromNumComponents(myConfig.numChannels), GL_UNSIGNED_BYTE, data);
 
   auto err = glGetError();
   if (err != GL_NO_ERROR) {
@@ -147,14 +98,14 @@ void screenshotSingleBuffer(unsigned int w, unsigned int h) {
   // TODO: validate that the filename cannot exceed 256 characters
   char filename[256];
 
-  auto extStr = WRITE_JPEG ? "jpeg" : "png";
+  auto extStr = myConfig.write_jpeg ? "jpeg" : "png";
 
-  if (fileName == outputFile)
-    sprintf(filename, "%s_map.%s", outputFile.c_str(), extStr);
+  if (myConfig.inputFile == myConfig.outputFile)
+    sprintf(filename, "%s_map.%s", myConfig.outputFile.c_str(), extStr);
   else
-    sprintf(filename, "%s.%s", outputFile.c_str(), extStr);
+    sprintf(filename, "%s.%s", myConfig.outputFile.c_str(), extStr);
 
-  writeImage(filename, w, h, numChannels, data);
+  writeImage(filename, w, h, myConfig.numChannels, data);
 
   delete[] data;
 }
@@ -166,91 +117,7 @@ void setWindowHints() {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 }
 
-// TODO: put this in separate file, set a config struct by reference
-bool parseArgsFailed(int argc, char **argv) {
-  for (int i = 1; i < argc; i++) {
-    const auto arg = std::string(argv[i]);
-    if (arg == "-h" || arg == "--help") {
-      printHelp();
-      return true;
-    } else if (arg == "-i" || arg == "--input") {
-      if (i + 1 == argc) {
-        std::cout << "Expected image name" << std::endl;
-        return true;
-      }
-      fileName = argv[i + 1];
-      i++;
-    } else if (arg == "-I") {
-      if (i + 1 == argc) {
-        std::cout << "Expected text file name" << std::endl;
-        return true;
-      }
-      listFileName = argv[i + 1];
-      i++;
-      std::cout << "Reading from " << listFileName << std::endl;
-    } else if (arg == "-d" || arg == "--dimensions") {
-      if (i + 1 == argc) {
-        std::cout << "Expected dimensions (i.e. 1x3, 2x2) following '" << arg << "'" << std::endl;
-        return true;
-      }
-      std::string dims = argv[i + 1];
-      auto result = parseDimsSuccess(dims);
-      if (result.first < 1 || result.second < 1) {
-        std::cerr << "Dimensions must be 2 positive, non-zero values separated by an 'x'" << std::endl;
-        return true;
-      }
-      cols = result.first;
-      rows = result.second;
-      SEPARATE_IMG_WRITE = false;
-      i++;
-    } else if (arg == "-j" || arg == "--jpeg" || arg == "--jpg") {
-      if (i + 1 != argc) {
-        // parse jpeg quality
-        auto maybeJpegQualityStr = argv[i + 1];
-        int maybeJpegQuality = std::atoi(maybeJpegQualityStr);
-        if (maybeJpegQuality >= 1) {
-          jpegQuality = maybeJpegQuality;
-          i++;
-        }
-      }
-      WRITE_JPEG = true;
-    } else if (arg == "-o") {
-      if (i + 1 == argc) {
-        std::cout << "Expected filename" << std::endl;
-        return true;
-      }
-      outputFile = argv[i + 1];
-      i++;
-    } else if (arg == "-c") {
-      if (i + 1 == argc) {
-        std::cout << "Expected component list" << std::endl;
-        return true;
-      }
-      compList = argv[i + 1];
-      i++;
-    } else {
-      std::cout << "Unknown flag '" << arg << "'\nTry hsv_map --help to view usage guide" << std::endl;
-      return true;
-    }
-  }
-
-  if (listFileName.empty()) {
-    if (fileName.empty()) {
-      std::cout << "Please provide an image filename with -i or an image list filename with -I" << std::endl;
-      return true;
-    }
-    outputFile = getOutputFileName(fileName);
-  } else {
-    // warn the user if they use both -o and -I
-    if (!outputFile.empty()) {
-      std::cout << "Warning: the specified output file name will not be used with an image list (-I flag)" << std::endl;
-    }
-  }
-
-  return false;
-}
-
-int processImage(std::string& file, std::vector<int>& flagsFromCompList, GLuint programId) {
+int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint programId) {
 
   std::cout << "Processing image: " << file << std::endl;
 
@@ -260,17 +127,25 @@ int processImage(std::string& file, std::vector<int>& flagsFromCompList, GLuint 
 
   unsigned char *image = stbi_load(file.c_str(), &w, &h, &comp, STBI_rgb_alpha);
 
+  if (myConfig.separate_img_write) {
+    myConfig.rows = 1;
+    myConfig.cols = flagsFromCompList.size();
+  }
+
+  std::cout << "width: " << w << ", height: " << h << ", comp: " << comp << std::endl;
+  std::cout << "rows: " << myConfig.rows << ", cols: " << myConfig.cols << std::endl;
+
   if (!image) {
     if (strcmp(stbi_failure_reason(), "can't fopen") == 0) {
-      std::cout << "Unable to open file \"" << fileName << "\"" << std::endl;
+      std::cout << "Unable to open file \"" << file << "\"" << std::endl;
       return IMAGE_NOT_FOUND;
     }
     std::cerr << "Unknown error loading image" << std::endl;
     return IMAGE_LOAD_ERR;
   }
 
-  const auto fullWidth = w * cols;
-  const auto fullHeight = h * rows;
+  const auto fullWidth = w * myConfig.cols;
+  const auto fullHeight = h * myConfig.rows;
 
   if (fullWidth > maxWidth || fullHeight > maxHeight) {
     std::cerr << "Error: the size of the generated framebuffer (" << fullWidth
@@ -281,7 +156,7 @@ int processImage(std::string& file, std::vector<int>& flagsFromCompList, GLuint 
 
   glViewport(0, 0, fullWidth, fullHeight);
 
-  numChannels = comp;
+  myConfig.numChannels = comp;
 
   Texture imageTexture, framebufferTexture;
 
@@ -312,24 +187,22 @@ int processImage(std::string& file, std::vector<int>& flagsFromCompList, GLuint 
   auto projMatrix = glm::ortho(0.f, (float) fullWidth, 0.f, (float) fullHeight, 0.0f, 100.0f);
   glUniformMatrix4fv(glGetUniformLocation(programId, "MVP"), 1, GL_FALSE, &projMatrix[0][0]);
 
-  if (SEPARATE_IMG_WRITE) {
-    rows = 1;
-    cols = flagsFromCompList.size();
-  }
-
   // Generate buffers
   std::vector<VertexBuffer> vertexBuffers; // TODO: validate that this is correct
-  vertexBuffers.reserve(rows * cols);
+  vertexBuffers.reserve(myConfig.rows * myConfig.cols);
 
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
+  for (int i = 0; i < myConfig.rows; i++) {
+    for (int j = 0; j < myConfig.cols; j++) {
       auto tmpBuffer = VertexBuffer(w * j, h * i, w, h);
       vertexBuffers.push_back(tmpBuffer);
+      std::cout << "buffer added" << std::endl;
     }
   }
 
   glActiveTexture(GL_TEXTURE0);
   imageTexture.bind();
+
+  std::cout << "ROWS: " << myConfig.rows << " COLS: " << myConfig.cols << std::endl;
 
   // Render buffers
   for (int i = 0; i < vertexBuffers.size(); i++) {
@@ -354,7 +227,7 @@ int processImage(std::string& file, std::vector<int>& flagsFromCompList, GLuint 
       }
     }
     // TODO: render blank geometry instead of a texture
-    if (rows * cols > numComps && i == vertexBuffers.size() - 1) {
+    if (myConfig.rows * myConfig.cols > myConfig.numComps && i == vertexBuffers.size() - 1) {
       glUniform1f(glGetUniformLocation(programId, "alpha"), 0.f);
     } else {
       glUniform1f(glGetUniformLocation(programId, "alpha"), 1.f);
@@ -371,7 +244,7 @@ int processImage(std::string& file, std::vector<int>& flagsFromCompList, GLuint 
     glDrawArrays(GL_TRIANGLES, 0, 6);
   }
 
-  if (SEPARATE_IMG_WRITE)
+  if (myConfig.separate_img_write)
     separateScreenshot(vertexBuffers, w, h, flagsFromCompList);
   else
     screenshotSingleBuffer(fullWidth, fullHeight);
@@ -383,55 +256,67 @@ int processImage(std::string& file, std::vector<int>& flagsFromCompList, GLuint 
   return SUCCESS;
 }
 
-int main(int argc, char **argv) {
-  startTimeMs = getTimeMs();
-
-  if (parseArgsFailed(argc, argv)) {
-    return ARG_PARSE_EXIT;
-  }
-
+std::pair<ExitReason, GLFWwindow *> createOpenGlContext() {
   if (!glfwInit()) {
     std::cerr << "Unable to initialize GLFW" << std::endl;
-    return GLFW_INIT_FAILURE;
+    return {GLFW_INIT_FAILURE, nullptr};
   }
 
-  glfwSetErrorCallback(error_callback);
+  glfwSetErrorCallback(glErrCallback);
 
   setWindowHints();
   GLFWwindow *window = glfwCreateWindow(1, 1, "", nullptr, nullptr);
 
   if (!window) {
     std::cerr << "Unable to create GLFW window" << std::endl;
-    return GLFW_WINDOW_INIT_FAILURE;
+    return {GLFW_WINDOW_INIT_FAILURE, nullptr};
   }
 
   glfwMakeContextCurrent(window);
 
   if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
     std::cerr << "Failed to initialize GLAD" << std::endl;
-    return GLAD_INIT_FAILURE;
+    return {GLAD_INIT_FAILURE, nullptr};
+  }
+  return {SUCCESS, window};
+}
+
+int main(int argc, char **argv) {
+  startTimeMs = getTimeMs();
+
+  if (parseArgsFailed(argc, argv, myConfig)) {
+    return ARG_PARSE_EXIT;
   }
 
-  std::vector<int> flagsFromCompList = get_flags_from_comp_list(compList, numComps);// = get_flags_from_comp_list();
-  if (flagsFromCompList.empty()) {
+  auto contextResult = createOpenGlContext();
+
+  if (contextResult.first != SUCCESS)
+    return contextResult.first;
+
+  auto window = contextResult.second;
+
+  auto flagsFromCompList = get_flags_from_comp_list(myConfig.compList,
+                                                                myConfig.numComps);
+  if (flagsFromCompList.empty())
     return COMP_FLAGS_UNREADABLE;
-  }
 
-  std::cout << "numComps is " << numComps << std::endl;
+  std::cout << "numComps is " << myConfig.numComps << std::endl;
 
   if (std::find(flagsFromCompList.begin(), flagsFromCompList.end(), RGB) != flagsFromCompList.end()) {
-    USE_8_BIT_DEPTH = false;
+    myConfig.use_8_bit_depth = false;
+  } else {
+    myConfig.numChannels = 1;
   }
 
-  std::cout << "USE_8_BIT_DEPTH? " << USE_8_BIT_DEPTH << std::endl;
+  std::cout << "USE_8_BIT_DEPTH? " << myConfig.use_8_bit_depth << std::endl;
 
   // Filters out duplicates for non-collaged images
-  if (SEPARATE_IMG_WRITE) {
+  if (myConfig.separate_img_write) {
     filterDuplicates(flagsFromCompList);
   } else {
-    if (flagsFromCompList.size() > rows * cols) {
+    if (flagsFromCompList.size() > myConfig.rows * myConfig.cols) {
       // TODO: make this more clear
-      std::cerr << "Error: the number of components must be <= the specified dimensions" << std::endl;
+      std::cerr << "Error: the number of components cannot exceed the specified dimensions" << std::endl;
       return COMPONENTS_EXCEEDS_DIMENSIONS;
     }
   }
@@ -444,8 +329,7 @@ int main(int argc, char **argv) {
   maxWidth = dims[0];
   maxHeight = dims[1];
 
-  // FIXME: this is just for testing
-  GLuint programId = LoadShaders("vertex.glsl", "frag.glsl");
+  auto programId = LoadShaders("vertex.glsl", "frag.glsl");
 
   glUseProgram(programId);
   glUniform1i(glGetUniformLocation(programId, "texImage"), 0);
@@ -454,12 +338,12 @@ int main(int argc, char **argv) {
 
   int exitReason = SUCCESS;
 
-  if (listFileName.empty()) {
-    exitReason = processImage(fileName, flagsFromCompList, programId);
+  if (myConfig.listFileName.empty()) {
+    exitReason = processImage(myConfig.inputFile, flagsFromCompList, programId);
   } else {
-    imageList = get_string_list_from_file(listFileName);
-    for (auto file: imageList) {
-      outputFile = getOutputFileName(file);
+    myConfig.imageList = get_string_list_from_file(myConfig.listFileName);
+    for (auto file: myConfig.imageList) {
+      myConfig.outputFile = getOutputFileName(file, myConfig);
       exitReason = processImage(file, flagsFromCompList, programId);
       if (exitReason != SUCCESS)
         break;

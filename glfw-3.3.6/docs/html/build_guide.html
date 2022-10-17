@@ -71,7 +71,7 @@ $(function() {
 <li class="level1"><a href="#build_link">Link with the right libraries</a><ul><li class="level2"><a href="#build_link_win32">With MinGW or Visual C++ on Windows</a></li>
 <li class="level2"><a href="#build_link_cmake_source">With CMake and GLFW source</a></li>
 <li class="level2"><a href="#build_link_cmake_package">With CMake and installed GLFW binaries</a></li>
-<li class="level2"><a href="#build_link_pkgconfig">With makefiles and pkg-config on Unix</a></li>
+<li class="level2"><a href="#build_link_pkgconfig">With makefiles and pkg-ProgramConfig on Unix</a></li>
 <li class="level2"><a href="#build_link_xcode">With Xcode on macOS</a></li>
 <li class="level2"><a href="#build_link_osx">With command-line on macOS</a></li>
 </ul>
@@ -159,23 +159,23 @@ With CMake and installed GLFW binaries</h2>
 </div><!-- fragment --><p >If OpenGL is found, the <code>OpenGL::GL</code> target is added to your project, containing library and include directory paths. Link against this like any other library.</p>
 <div class="fragment"><div class="line">target_link_libraries(myapp OpenGL::GL)</div>
 </div><!-- fragment --><h2><a class="anchor" id="build_link_pkgconfig"></a>
-With makefiles and pkg-config on Unix</h2>
-<p >GLFW supports <a href="https://www.freedesktop.org/wiki/Software/pkg-config/">pkg-config</a>, and the <code>glfw3.pc</code> pkg-config file is generated when the GLFW library is built and is installed along with it. A pkg-config file describes all necessary compile-time and link-time flags and dependencies needed to use a library. When they are updated or if they differ between systems, you will get the correct ones automatically.</p>
+With makefiles and pkg-ProgramConfig on Unix</h2>
+<p >GLFW supports <a href="https://www.freedesktop.org/wiki/Software/pkg-ProgramConfig/">pkg-ProgramConfig</a>, and the <code>glfw3.pc</code> pkg-ProgramConfig file is generated when the GLFW library is built and is installed along with it. A pkg-ProgramConfig file describes all necessary compile-time and link-time flags and dependencies needed to use a library. When they are updated or if they differ between systems, you will get the correct ones automatically.</p>
 <p >A typical compile and link command-line when using the static version of the GLFW library may look like this:</p>
-<div class="fragment"><div class="line">cc $(pkg-config --cflags glfw3) -o myprog myprog.c $(pkg-config --static --libs glfw3)</div>
+<div class="fragment"><div class="line">cc $(pkg-ProgramConfig --cflags glfw3) -o myprog myprog.c $(pkg-ProgramConfig --static --libs glfw3)</div>
 </div><!-- fragment --><p >If you are using the shared version of the GLFW library, omit the <code>--static</code> flag.</p>
-<div class="fragment"><div class="line">cc $(pkg-config --cflags glfw3) -o myprog myprog.c $(pkg-config --libs glfw3)</div>
+<div class="fragment"><div class="line">cc $(pkg-ProgramConfig --cflags glfw3) -o myprog myprog.c $(pkg-ProgramConfig --libs glfw3)</div>
 </div><!-- fragment --><p >You can also use the <code>glfw3.pc</code> file without installing it first, by using the <code>PKG_CONFIG_PATH</code> environment variable.</p>
-<div class="fragment"><div class="line">env PKG_CONFIG_PATH=path/to/glfw/src cc $(pkg-config --cflags glfw3) -o myprog myprog.c $(pkg-config --libs glfw3)</div>
-</div><!-- fragment --><p >The dependencies do not include OpenGL, as GLFW loads any OpenGL, OpenGL ES or Vulkan libraries it needs at runtime. If your application calls OpenGL directly, instead of using a modern <a class="el" href="context_guide.html#context_glext_auto">extension loader library</a>, you should add the <code>gl</code> pkg-config package.</p>
-<div class="fragment"><div class="line">cc $(pkg-config --cflags glfw3 gl) -o myprog myprog.c $(pkg-config --libs glfw3 gl)</div>
+<div class="fragment"><div class="line">env PKG_CONFIG_PATH=path/to/glfw/src cc $(pkg-ProgramConfig --cflags glfw3) -o myprog myprog.c $(pkg-ProgramConfig --libs glfw3)</div>
+</div><!-- fragment --><p >The dependencies do not include OpenGL, as GLFW loads any OpenGL, OpenGL ES or Vulkan libraries it needs at runtime. If your application calls OpenGL directly, instead of using a modern <a class="el" href="context_guide.html#context_glext_auto">extension loader library</a>, you should add the <code>gl</code> pkg-ProgramConfig package.</p>
+<div class="fragment"><div class="line">cc $(pkg-ProgramConfig --cflags glfw3 gl) -o myprog myprog.c $(pkg-ProgramConfig --libs glfw3 gl)</div>
 </div><!-- fragment --><h2><a class="anchor" id="build_link_xcode"></a>
 With Xcode on macOS</h2>
 <p >If you are using the dynamic library version of GLFW, add it to the project dependencies.</p>
 <p >If you are using the static library version of GLFW, add it and the Cocoa, OpenGL and IOKit frameworks to the project as dependencies. They can all be found in <code>/System/Library/Frameworks</code>.</p>
 <h2><a class="anchor" id="build_link_osx"></a>
 With command-line on macOS</h2>
-<p >It is recommended that you use <a class="el" href="build_guide.html#build_link_pkgconfig">pkg-config</a> when building from the command line on macOS. That way you will get any new dependencies added automatically. If you still wish to build manually, you need to add the required frameworks and libraries to your command-line yourself using the <code>-l</code> and <code>-framework</code> switches.</p>
+<p >It is recommended that you use <a class="el" href="build_guide.html#build_link_pkgconfig">pkg-ProgramConfig</a> when building from the command line on macOS. That way you will get any new dependencies added automatically. If you still wish to build manually, you need to add the required frameworks and libraries to your command-line yourself using the <code>-l</code> and <code>-framework</code> switches.</p>
 <p >If you are using the dynamic GLFW library, which is named <code>libglfw.3.dylib</code>, do:</p>
 <div class="fragment"><div class="line">cc -o myprog myprog.c -lglfw -framework Cocoa -framework OpenGL -framework IOKit</div>
 </div><!-- fragment --><p >If you are using the static library, named <code>libglfw3.a</code>, substitute <code>-lglfw3</code> for <code>-lglfw</code>.</p>

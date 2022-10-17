@@ -14,7 +14,7 @@
 # Project related configuration options
 #---------------------------------------------------------------------------
 
-# This tag specifies the encoding used for all characters in the config file
+# This tag specifies the encoding used for all characters in the ProgramConfig file
 # that follow. The default is UTF-8 which is also the encoding used for all
 # text before the first occurrence of this tag. Doxygen uses libiconv (or the
 # iconv built into libc) for the transcoding. See
@@ -1392,13 +1392,13 @@ COMPACT_RTF            = NO
 RTF_HYPERLINKS         = NO
 
 # Load style sheet definitions from file. Syntax is similar to doxygen's
-# config file, i.e. a series of assignments. You only have to provide
+# ProgramConfig file, i.e. a series of assignments. You only have to provide
 # replacements, missing definitions are set to their default value.
 
 RTF_STYLESHEET_FILE    =
 
 # Set optional variables used in the generation of an rtf document.
-# Syntax is similar to doxygen's config file.
+# Syntax is similar to doxygen's ProgramConfig file.
 
 RTF_EXTENSIONS_FILE    =
 

@@ -9,7 +9,9 @@
 #include <ctime>
 #include <fstream>
 
-#include "utils.h"
+#include "parse_utils.h"
+#include "config_utils.h"
+#include "log_utils.h"
 #include "../glad/glad.h"
 
 // TODO: implement
@@ -17,10 +19,15 @@
 //  return {0, 0};
 //}
 
-long long getTimeMs() {
-  auto nowTimePoint = std::chrono::high_resolution_clock::now();
-  auto d = nowTimePoint.time_since_epoch();
-  return std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
+std::string getOutputFileName(const std::string& inFile, const struct ProgramConfig& myConfig) {
+  std::string tmp = stripFileExt(inFile);
+  std::cout << "Stripped to " << tmp << std::endl;
+  if (tmp.empty()) { // handles cases where the input file is ".png" or similar
+    return getTimestampStr();
+  } else if (!myConfig.separate_img_write) {
+    tmp += "_" + getTimestampStr();
+  }
+  return tmp;
 }
 
 std::vector<std::string> get_string_list_from_file(const std::string& file) {
@@ -138,14 +145,6 @@ std::string stripFileExt(const std::string &input) {
   }
 
   return out;
-}
-
-std::string getTimestampStr() {
-  auto t = std::time(nullptr);
-  auto tm = *std::localtime(&t);
-  std::ostringstream oss;
-  oss << std::put_time(&tm, "hsv_map_%m%d%Y_%H%M%S");
-  return oss.str();
 }
 
 int getColorFormatFromNumComponents(int numComponents) {

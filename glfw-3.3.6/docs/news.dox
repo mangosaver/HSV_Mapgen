@@ -567,10 +567,10 @@ not emit errors with the @ref GLFW_CONTEXT_NO_ERROR hint, provided the machine
 supports the `GL_KHR_no_error` extension.
 
 
-@subsubsection news_32_cmake CMake config-file package support
+@subsubsection news_32_cmake CMake ProgramConfig-file package support
 
 GLFW now supports being used as a
-[config-file package](@ref build_link_cmake_package) from other projects for
+[ProgramConfig-file package](@ref build_link_cmake_package) from other projects for
 easy linking with the library and its dependencies.
 
 

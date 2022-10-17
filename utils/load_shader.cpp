@@ -10,13 +10,41 @@
 
 #include "../glad/glad.h"
 
-#include "loadShader.h"
+#include "load_shader.h"
 
 // TODO: inline the shaders at compile time
 const std::string shaderDir = R"(C:\Users\Cale\CLionProjects\HSV_Mapper\shaders\)";
 
-GLuint LoadShaders(std::string vertex_file_path, std::string fragment_file_path) {
+GLuint _loadShader(int shaderType, std::string shaderPath) {
+  auto shaderId = glCreateShader(shaderType);
 
+  std::string shaderSrc;
+  std::ifstream io(shaderPath, std::ios::in);
+
+  if (!io.is_open()) {
+    std::cout << "Unable to open shader file from path " << shaderPath << std::endl;
+    return 0;
+  }
+
+  std::stringstream tmpStream;
+  tmpStream << io.rdbuf();
+  shaderSrc = tmpStream.str();
+  io.close();
+
+  char const *VertexSourcePointer = shaderSrc.c_str();
+
+  glShaderSource(shaderId, 1, &VertexSourcePointer, nullptr);
+  glCompileShader(shaderId);
+
+  GLint Result = GL_FALSE;
+  int InfoLogLength;
+  glGetShaderiv(shaderId, GL_COMPILE_STATUS, &Result);
+  glGetShaderiv(shaderId, GL_INFO_LOG_LENGTH, &InfoLogLength);
+
+  return shaderId;
+}
+
+GLuint LoadShaders(std::string vertex_file_path, std::string fragment_file_path) {
   vertex_file_path = shaderDir + vertex_file_path;
   fragment_file_path = shaderDir + fragment_file_path;
 
@@ -82,10 +110,13 @@ GLuint LoadShaders(std::string vertex_file_path, std::string fragment_file_path)
     printf("%s\n", &FragmentShaderErrorMessage[0]);
   }
 
+  auto compiledVertexShaderId = _loadShader(GL_VERTEX_SHADER, vertex_file_path);
+  auto compiledFragmentShaderId = _loadShader(GL_FRAGMENT_SHADER, fragment_file_path);
+
   // Link the program
   printf("Linking program\n");
   GLuint ProgramID = glCreateProgram();
-  glAttachShader(ProgramID, VertexShaderID);
+  glAttachShader(ProgramID, compiledVertexShaderId);
   glAttachShader(ProgramID, FragmentShaderID);
   glLinkProgram(ProgramID);
 
@@ -98,11 +129,13 @@ GLuint LoadShaders(std::string vertex_file_path, std::string fragment_file_path)
     printf("%s\n", &ProgramErrorMessage[0]);
   }
 
-  glDetachShader(ProgramID, VertexShaderID);
+//  glDetachShader(ProgramID, VertexShaderID);
   glDetachShader(ProgramID, FragmentShaderID);
+  glDetachShader(ProgramID, compiledVertexShaderId);
 
-  glDeleteShader(VertexShaderID);
+//  glDeleteShader(VertexShaderID);
   glDeleteShader(FragmentShaderID);
+  glDeleteShader(compiledVertexShaderId);
 
   printf("Program has been created\n");
 
