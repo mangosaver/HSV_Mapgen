@@ -1,7 +1,3 @@
-//
-// Created by Cale on 9/4/2022.
-//
-
 #include <chrono>
 #include <iomanip>
 #include <ctime>
@@ -11,7 +7,7 @@ std::string getTimestampStr() {
   auto t = std::time(nullptr);
   auto tm = *std::localtime(&t);
   std::ostringstream oss;
-  oss << std::put_time(&tm, "hsv_map_%m%d%Y_%H%M%S");
+  oss << std::put_time(&tm, "hsvutils_%m%d%Y_%H%M%S");
   return oss.str();
 }
 

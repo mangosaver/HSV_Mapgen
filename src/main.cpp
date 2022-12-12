@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 #define GLFW_INCLUDE_NONE
 
@@ -18,48 +19,36 @@
 #include "../include/stb_image_write.h"
 
 #include "VertexBuffer.h"
-
-#include "../utils/load_shader.h"
-
-#include "consts.h"
 #include "Texture.h"
+#include "consts.h"
 
 #include "../utils/parse_utils.h"
-#include "../utils/config_utils.h"
-
-#include "../utils/print_help.h"
 #include "../utils/log_utils.h"
+#include "../utils/load_shader.h"
+
+#define VERBOSE true
 
 ProgramConfig myConfig;
 
-bool IS_VERBOSE = false;
-
 long long startTimeMs;
 
-int maxWidth, maxHeight;
-
-GLuint framebufferTarget;
+int MAX_HW_WIDTH_SUPPORTED, MAX_HW_HEIGHT_SUPPORTED;
 
 void writeImage(const char *filename, int w, int h, int comp, const GLubyte *data) {
-  if (myConfig.write_jpeg)
-    stbi_write_jpg(filename, w, h, comp, data, (int) myConfig.jpeg_quality);
+  if (myConfig.writeJpeg)
+    stbi_write_jpg(filename, w, h, comp, data, (int) myConfig.jpegQuality);
   else
     stbi_write_png(filename, w, h, comp, data, w * comp);
   std::cout << "Wrote file " << filename << std::endl;
 }
 
-void separateScreenshot(const std::vector<VertexBuffer> &buffers, int w, int h, std::vector<int> comps) {
-  std::cout << "Taking separateScreenshot" << std::endl;
-
-  // TODO: put this in utils
-  const char *names[] = {"hue", "sat", "val", "rgb", "red", "green", "blue"};
-
+void readFramebufferSeparateImgs(const std::vector<VertexBuffer> &buffers, int w, int h, std::vector<int> comps) {
   std::cout << "numChannels: " << myConfig.numChannels << std::endl;
 
   auto *data = new GLubyte[w * h * myConfig.numChannels];
 
   for (int i = 0; i < buffers.size(); i++) {
-    auto buffer = buffers[i];
+    const auto &buffer = buffers[i];
 
     glReadPixels(buffer.getX(), buffer.getY(), w, h, getColorFormatFromNumComponents(myConfig.numChannels),
                  GL_UNSIGNED_BYTE,
@@ -67,43 +56,40 @@ void separateScreenshot(const std::vector<VertexBuffer> &buffers, int w, int h, 
 
     auto err = glGetError();
     if (err != GL_NO_ERROR) {
-      std::cout << "[1] There was an error reading the framebuffer, gl err " << err << std::endl;
+      std::cout << "There was an error reading the framebuffer; error code is " << err << std::endl;
       delete[] data;
       return;
     }
 
     char filename[256];
-    auto extStr = myConfig.write_jpeg ? "jpeg" : "png";
+    auto extStr = myConfig.writeJpeg ? "jpeg" : "png";
 
-    sprintf(filename, "%s_%s.%s", myConfig.outputFile.c_str(), names[comps[i]], extStr);
+    sprintf(filename, "%s_%s.%s", myConfig.outputFile.c_str(), COMP_NAME_MAP[comps[i]], extStr);
     writeImage(filename, w, h, myConfig.numChannels, data);
   }
   delete[] data;
 }
 
-void screenshotSingleBuffer(unsigned int w, unsigned int h) {
-
-  std::cout << "Taking screenshotSingleBuffer: " << w << " x " << h << std::endl;
-  std::cout << "numChannels: " << myConfig.numChannels << std::endl;
-
+void readFramebufferCollage(unsigned int w, unsigned int h) {
   auto *data = new GLubyte[w * h * myConfig.numChannels];
 
-  glReadPixels(0, 0, w, h, getColorFormatFromNumComponents(myConfig.numChannels), GL_UNSIGNED_BYTE, data);
+  glReadPixels(0, 0, (int) w, (int) h, getColorFormatFromNumComponents(myConfig.numChannels), GL_UNSIGNED_BYTE, data);
 
   auto err = glGetError();
   if (err != GL_NO_ERROR) {
-    std::cout << "[2] There was an error reading the framebuffer, err is " << err << std::endl;
+    std::cout << "There was an error reading the framebuffer; error code is " << err << std::endl;
+    return;
   }
 
   // TODO: validate that the filename cannot exceed 256 characters
   char filename[256];
 
-  auto extStr = myConfig.write_jpeg ? "jpeg" : "png";
+  auto fileExt = myConfig.writeJpeg ? "jpeg" : "png";
 
   if (myConfig.inputFile == myConfig.outputFile)
-    sprintf(filename, "%s_map.%s", myConfig.outputFile.c_str(), extStr);
+    sprintf(filename, "%s_map.%s", myConfig.outputFile.c_str(), fileExt);
   else
-    sprintf(filename, "%s.%s", myConfig.outputFile.c_str(), extStr);
+    sprintf(filename, "%s.%s", myConfig.outputFile.c_str(), fileExt);
 
   writeImage(filename, w, h, myConfig.numChannels, data);
 
@@ -118,18 +104,17 @@ void setWindowHints() {
 }
 
 int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint programId) {
+  if (VERBOSE)
+    std::cout << "Processing image " << file << std::endl;
 
-  std::cout << "Processing image: " << file << std::endl;
-
-  // stbi image loading
-  // TODO: abstract this, add support for image list
+  // TODO: abstract this
   int w, h, comp;
 
   unsigned char *image = stbi_load(file.c_str(), &w, &h, &comp, STBI_rgb_alpha);
 
-  if (myConfig.separate_img_write) {
+  if (myConfig.separateImgWrite) {
     myConfig.rows = 1;
-    myConfig.cols = flagsFromCompList.size();
+    myConfig.cols = (int) flagsFromCompList.size();
   }
 
   std::cout << "width: " << w << ", height: " << h << ", comp: " << comp << std::endl;
@@ -147,10 +132,10 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
   const auto fullWidth = w * myConfig.cols;
   const auto fullHeight = h * myConfig.rows;
 
-  if (fullWidth > maxWidth || fullHeight > maxHeight) {
+  if (fullWidth > MAX_HW_WIDTH_SUPPORTED || fullHeight > MAX_HW_HEIGHT_SUPPORTED) {
     std::cerr << "Error: the size of the generated framebuffer (" << fullWidth
-              << " x " << fullHeight << ") exceeds this machine's limit (" << maxWidth
-              << " x " << maxHeight << ")" << std::endl;
+              << " x " << fullHeight << ") exceeds this machine's limit (" << MAX_HW_WIDTH_SUPPORTED
+              << " x " << MAX_HW_HEIGHT_SUPPORTED << ")" << std::endl;
     return MAX_VIEWPORT_SIZE_EXCEEDED;
   }
 
@@ -169,6 +154,7 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
   glBindVertexArray(VAO);
 
   // TODO: create framebuffer function
+  GLuint framebufferTarget;
   glGenFramebuffers(1, &framebufferTarget);
   glBindFramebuffer(GL_FRAMEBUFFER, framebufferTarget);
 
@@ -180,7 +166,7 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
   glDrawBuffers(1, buffers);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-    std::cerr << "Unable to create framebuffer target: err " << glGetError() << std::endl;
+    std::cerr << "Unable to create framebuffer target: error code is " << glGetError() << std::endl;
     return FRAMEBUFFER_CREATION_FAILURE;
   }
 
@@ -193,40 +179,33 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
 
   for (int i = 0; i < myConfig.rows; i++) {
     for (int j = 0; j < myConfig.cols; j++) {
-      auto tmpBuffer = VertexBuffer(w * j, h * i, w, h);
-      vertexBuffers.push_back(tmpBuffer);
-      std::cout << "buffer added" << std::endl;
+      auto tmp = VertexBuffer(w * j, h * i, w, h);
+      vertexBuffers.push_back(tmp);
     }
   }
 
   glActiveTexture(GL_TEXTURE0);
   imageTexture.bind();
 
-  std::cout << "ROWS: " << myConfig.rows << " COLS: " << myConfig.cols << std::endl;
-
   // Render buffers
   for (int i = 0; i < vertexBuffers.size(); i++) {
-    if (i >= flagsFromCompList.size()) {
-      std::cout << "i: " << i;
-      std::cout << "; Out of bounds, rendering blank image..." << std::endl;
-    } else {
+    if (i >= flagsFromCompList.size())
+      continue;
+
+    if (VERBOSE)
       std::cout << "Rendering component: " << flagsFromCompList[i] << std::endl;
-      glUniform1f(glGetUniformLocation(programId, "blendRgbComp"), 0.f);
-      glUniform1f(glGetUniformLocation(programId, "blendOrig"), 0.f);
-      if (flagsFromCompList[i] == RGB) {
-        std::cout << "Rendering RGB..." << std::endl;
-        glUniform1i(glGetUniformLocation(programId, "compIdx"), 0);
-        glUniform1f(glGetUniformLocation(programId, "blendOrig"), 1.f);
-      } else if (flagsFromCompList[i] < RGB) {
-        std::cout << "flagsFromCompList 1 : " << flagsFromCompList[i] << std::endl;
-        glUniform1i(glGetUniformLocation(programId, "compIdx"), flagsFromCompList[i]);
-      } else {
-        std::cout << "flagsFromCompList 2 : " << (flagsFromCompList[i] - RED) << std::endl;
-        glUniform1i(glGetUniformLocation(programId, "compIdx"), flagsFromCompList[i] - RED);
-        glUniform1f(glGetUniformLocation(programId, "blendRgbComp"), 1.f);
-      }
+    glUniform1f(glGetUniformLocation(programId, "blendRgbComp"), 0.f);
+    glUniform1f(glGetUniformLocation(programId, "blendOrig"), 0.f);
+    if (flagsFromCompList[i] == RGB) {
+      glUniform1i(glGetUniformLocation(programId, "compIdx"), 0);
+      glUniform1f(glGetUniformLocation(programId, "blendOrig"), 1.f);
+    } else if (flagsFromCompList[i] < RGB) {
+      glUniform1i(glGetUniformLocation(programId, "compIdx"), flagsFromCompList[i]);
+    } else {
+      glUniform1i(glGetUniformLocation(programId, "compIdx"), flagsFromCompList[i] - RED);
+      glUniform1f(glGetUniformLocation(programId, "blendRgbComp"), 1.f);
     }
-    // TODO: render blank geometry instead of a texture
+
     if (myConfig.rows * myConfig.cols > myConfig.numComps && i == vertexBuffers.size() - 1) {
       glUniform1f(glGetUniformLocation(programId, "alpha"), 0.f);
     } else {
@@ -244,10 +223,10 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
     glDrawArrays(GL_TRIANGLES, 0, 6);
   }
 
-  if (myConfig.separate_img_write)
-    separateScreenshot(vertexBuffers, w, h, flagsFromCompList);
+  if (myConfig.separateImgWrite)
+    readFramebufferSeparateImgs(vertexBuffers, w, h, flagsFromCompList);
   else
-    screenshotSingleBuffer(fullWidth, fullHeight);
+    readFramebufferCollage(fullWidth, fullHeight);
 
   glDeleteFramebuffers(1, &framebufferTarget);
   framebufferTexture.free();
@@ -257,12 +236,12 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
 }
 
 std::pair<ExitReason, GLFWwindow *> createOpenGlContext() {
+  glfwSetErrorCallback(glErrCallback);
+
   if (!glfwInit()) {
     std::cerr << "Unable to initialize GLFW" << std::endl;
     return {GLFW_INIT_FAILURE, nullptr};
   }
-
-  glfwSetErrorCallback(glErrCallback);
 
   setWindowHints();
   GLFWwindow *window = glfwCreateWindow(1, 1, "", nullptr, nullptr);
@@ -290,34 +269,31 @@ int main(int argc, char **argv) {
 
   auto contextResult = createOpenGlContext();
 
-  if (contextResult.first != SUCCESS)
+  if (contextResult.first != SUCCESS) {
+    glfwTerminate();
     return contextResult.first;
+  }
 
   auto window = contextResult.second;
 
-  auto flagsFromCompList = get_flags_from_comp_list(myConfig.compList,
-                                                                myConfig.numComps);
+  auto flagsFromCompList = getFlagsFromCompList(myConfig.compList,
+                                                myConfig.numComps);
   if (flagsFromCompList.empty())
     return COMP_FLAGS_UNREADABLE;
 
-  std::cout << "numComps is " << myConfig.numComps << std::endl;
-
   if (std::find(flagsFromCompList.begin(), flagsFromCompList.end(), RGB) != flagsFromCompList.end()) {
-    myConfig.use_8_bit_depth = false;
+    myConfig.use8BitDepth = false;
   } else {
     myConfig.numChannels = 1;
   }
 
-  std::cout << "USE_8_BIT_DEPTH? " << myConfig.use_8_bit_depth << std::endl;
-
   // Filters out duplicates for non-collaged images
-  if (myConfig.separate_img_write) {
+  if (myConfig.separateImgWrite) {
     filterDuplicates(flagsFromCompList);
   } else {
     if (flagsFromCompList.size() > myConfig.rows * myConfig.cols) {
-      // TODO: make this more clear
-      std::cerr << "Error: the number of components cannot exceed the specified dimensions" << std::endl;
-      return COMPONENTS_EXCEEDS_DIMENSIONS;
+      std::cerr << "Warning: the provided dimensions will not fit the number of components (" <<
+      flagsFromCompList.size() << ")" << std::endl;
     }
   }
 
@@ -326,10 +302,15 @@ int main(int argc, char **argv) {
 
   GLint dims[2];
   glGetIntegerv(GL_MAX_VIEWPORT_DIMS, &dims[0]);
-  maxWidth = dims[0];
-  maxHeight = dims[1];
+  MAX_HW_WIDTH_SUPPORTED = dims[0];
+  MAX_HW_HEIGHT_SUPPORTED = dims[1];
 
-  auto programId = LoadShaders("vertex.glsl", "frag.glsl");
+  auto programId = createShaderProgram();
+
+  if (!programId) {
+    std::cout << "Failed to create shader program" << std::endl;
+    return SHADER_COMPILATION_FAILED;
+  }
 
   glUseProgram(programId);
   glUniform1i(glGetUniformLocation(programId, "texImage"), 0);
@@ -341,7 +322,7 @@ int main(int argc, char **argv) {
   if (myConfig.listFileName.empty()) {
     exitReason = processImage(myConfig.inputFile, flagsFromCompList, programId);
   } else {
-    myConfig.imageList = get_string_list_from_file(myConfig.listFileName);
+    myConfig.imageList = getStringListFromFile(myConfig.listFileName);
     for (auto file: myConfig.imageList) {
       myConfig.outputFile = getOutputFileName(file, myConfig);
       exitReason = processImage(file, flagsFromCompList, programId);

@@ -1,11 +1,7 @@
-//
-// Created by Cale on 5/20/2022.
-//
-
 #ifndef HSV_MAPPER_CONSTS_H
 #define HSV_MAPPER_CONSTS_H
 
-enum ExitReason {
+enum ExitReason: int {
     SUCCESS, // 0
     COMP_FLAGS_UNREADABLE,
     GLAD_INIT_FAILURE,
@@ -15,8 +11,10 @@ enum ExitReason {
     IMAGE_NOT_FOUND,
     IMAGE_LOAD_ERR,
     ARG_PARSE_EXIT,
-    COMPONENTS_EXCEEDS_DIMENSIONS,
-    MAX_VIEWPORT_SIZE_EXCEEDED
+    MAX_VIEWPORT_SIZE_EXCEEDED,
+    SHADER_COMPILATION_FAILED
 };
+
+const char *COMP_NAME_MAP[] = {"hue", "sat", "val", "rgb", "red", "green", "blue"};
 
 #endif //HSV_MAPPER_CONSTS_H

@@ -1,36 +1,26 @@
-//
-// Created by Cale on 6/5/2022.
-//
-
 #include <chrono>
 #include <unordered_set>
 #include <iostream>
-#include <iomanip>
-#include <ctime>
 #include <fstream>
+#include <string>
 
 #include "parse_utils.h"
 #include "config_utils.h"
 #include "log_utils.h"
 #include "../glad/glad.h"
 
-// TODO: implement
-//std::pair<int, int> load_image() {
-//  return {0, 0};
-//}
-
-std::string getOutputFileName(const std::string& inFile, const struct ProgramConfig& myConfig) {
+std::string getOutputFileName(const std::string &inFile, const struct ProgramConfig &myConfig) {
   std::string tmp = stripFileExt(inFile);
   std::cout << "Stripped to " << tmp << std::endl;
   if (tmp.empty()) { // handles cases where the input file is ".png" or similar
     return getTimestampStr();
-  } else if (!myConfig.separate_img_write) {
+  } else if (!myConfig.separateImgWrite) {
     tmp += "_" + getTimestampStr();
   }
   return tmp;
 }
 
-std::vector<std::string> get_string_list_from_file(const std::string& file) {
+std::vector<std::string> getStringListFromFile(const std::string &file) {
   std::ifstream inStream(file);
 
   if (!inStream.is_open()) {
@@ -48,14 +38,14 @@ std::vector<std::string> get_string_list_from_file(const std::string& file) {
   return out;
 }
 
-Component map_string_to_flag(const std::string &str) {
+Component mapStringToFlag(const std::string &str) {
   if (str == "hue" || str == "h")
     return HUE;
   if (str == "sat" || str == "saturation" || str == "s")
     return SATURATION;
   if (str == "val" || str == "value" || str == "lightness" || str == "v")
     return VALUE;
-  if (str == "orig" || str == "normal" || str == "rgb")
+  if (str == "orig" || str == "normal" || str == "rgb" || str == "o" || str == "n")
     return RGB;
   if (str == "red" || str == "r")
     return RED;
@@ -66,7 +56,7 @@ Component map_string_to_flag(const std::string &str) {
   return INVALID;
 }
 
-std::vector<int> get_flags_from_comp_list(const std::string &compList, int &numComps) {
+std::vector<int> getFlagsFromCompList(const std::string &compList, int &numComps) {
   std::string current;
   std::vector<std::string> strs;
 
@@ -88,21 +78,21 @@ std::vector<int> get_flags_from_comp_list(const std::string &compList, int &numC
   std::vector<int> out;
   numComps = strs.size();
 
-  for (int i = 0; i < strs.size(); i++) {
-    out.push_back(map_string_to_flag(strs[i]));
-    if (out[i] == INVALID) {
-      std::cerr << "Invalid component string '" << strs[i] << "'" << std::endl;
+  for (auto &str: strs) {
+    if (mapStringToFlag(str) == INVALID) {
+      std::cerr << "Invalid component string '" << str << "'" << std::endl;
       return {};
     }
+    out.push_back(mapStringToFlag(str));
   }
 
   return out;
 }
 
 std::pair<int, int> parseDimsSuccess(const std::string &dims) {
-  if (dims.length() < 3) {
+  if (dims.length() < 3)
     return {-1, -1};
-  }
+
   int w, h;
   std::string wTemp, hTemp;
   bool fillWidth = true;
@@ -154,7 +144,7 @@ int getColorFormatFromNumComponents(int numComponents) {
     case 3:
       return GL_RGB;
     case 2:
-      return GL_RG; // who uses this?
+      return GL_RG;
     default:
       return GL_RED;
   }

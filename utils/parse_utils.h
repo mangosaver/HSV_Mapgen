@@ -24,11 +24,11 @@ enum Component {
 
 std::string getOutputFileName(const std::string&, const struct ProgramConfig&);
 
-std::vector<std::string> get_string_list_from_file(const std::string&);
+std::vector<std::string> getStringListFromFile(const std::string &file);
 
-Component map_string_to_flag(const std::string&);
+Component mapStringToFlag(const std::string &str);
 
-std::vector<int> get_flags_from_comp_list(const std::string&, int&);
+std::vector<int> getFlagsFromCompList(const std::string &compList, int &numComps);
 
 std::pair<int, int> parseDimsSuccess(const std::string&);
 

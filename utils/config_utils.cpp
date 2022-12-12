@@ -1,7 +1,3 @@
-//
-// Created by Cale on 9/4/2022.
-//
-
 #include <string>
 #include <iostream>
 
@@ -42,7 +38,7 @@ bool parseArgsFailed(int argc, char **argv, struct ProgramConfig& config) {
       }
       config.cols = result.first;
       config.rows = result.second;
-      config.separate_img_write = false;
+      config.separateImgWrite = false;
       i++;
     } else if (arg == "-j" || arg == "--jpeg" || arg == "--jpg") {
       if (i + 1 != argc) {
@@ -50,11 +46,11 @@ bool parseArgsFailed(int argc, char **argv, struct ProgramConfig& config) {
         auto maybeJpegQualityStr = argv[i + 1];
         int maybeJpegQuality = std::atoi(maybeJpegQualityStr);
         if (maybeJpegQuality >= 1) {
-          config.jpeg_quality = maybeJpegQuality;
+          config.jpegQuality = maybeJpegQuality;
           i++;
         }
       }
-      config.write_jpeg = true;
+      config.writeJpeg = true;
     } else if (arg == "-o") {
       if (i + 1 == argc) {
         std::cout << "Expected filename" << std::endl;
