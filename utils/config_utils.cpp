@@ -9,6 +9,7 @@ bool parseArgsFailed(int argc, char **argv, struct ProgramConfig& config) {
   for (int i = 1; i < argc; i++) {
     const auto arg = std::string(argv[i]);
     if (arg == "-h" || arg == "--help") {
+      config.helped = true;
       printHelp();
       return true;
     } else if (arg == "-i" || arg == "--input") {
@@ -57,6 +58,7 @@ bool parseArgsFailed(int argc, char **argv, struct ProgramConfig& config) {
         return true;
       }
       config.outputFile = argv[i + 1];
+      config.overwriteOutputFilename = true;
       i++;
     } else if (arg == "-c") {
       if (i + 1 == argc) {
@@ -66,7 +68,7 @@ bool parseArgsFailed(int argc, char **argv, struct ProgramConfig& config) {
       config.compList = argv[i + 1];
       i++;
     } else {
-      std::cout << "Unknown flag '" << arg << "'\nTry hsv_map --help to view usage guide" << std::endl;
+      std::cout << "Unknown flag '" << arg << "'" << std::endl;
       return true;
     }
   }
@@ -78,7 +80,7 @@ bool parseArgsFailed(int argc, char **argv, struct ProgramConfig& config) {
     }
     config.outputFile = getOutputFileName(config.inputFile, config);
   } else {
-    // warn the user if they use both -o and -I
+    // Warn the user if they use both -o and -I
     if (!config.outputFile.empty()) {
       std::cout << "Warning: the specified output file name will not be used with an image list (-I flag)" << std::endl;
     }

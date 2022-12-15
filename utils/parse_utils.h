@@ -1,7 +1,3 @@
-//
-// Created by Cale on 6/5/2022.
-//
-
 #ifndef HSV_MAPPER_PARSE_UTILS_H
 #define HSV_MAPPER_PARSE_UTILS_H
 

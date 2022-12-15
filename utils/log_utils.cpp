@@ -4,10 +4,10 @@
 #include <string>
 
 std::string getTimestampStr() {
-  auto t = std::time(nullptr);
-  auto tm = *std::localtime(&t);
+  auto time = std::time(nullptr);
+  auto localTime = *std::localtime(&time);
   std::ostringstream oss;
-  oss << std::put_time(&tm, "hsvutils_%m%d%Y_%H%M%S");
+  oss << std::put_time(&localTime, "hsv_mapgen_%m%d%Y_%H%M%S");
   return oss.str();
 }
 

@@ -1,7 +1,7 @@
 # HSV Map Generator
 
 ![Example image](example.jpeg "Example output")
-*Example output running the program with `hsv_mapgen -d 2x2 -c hue:sat:val:orig -j 80`*
+*Result of running `hsv_mapgen -d 2x2 -c hue:sat:val:orig -j 80`*
 
 ### About
 
@@ -49,7 +49,7 @@ Example 2: generate a grayscale maps of an image's hue, value, red, and blue
 hsv_mapgen -i my_input.png -c hue:val:red:blue
 ```
 
-The flags can be provided in any order. All flags:
+The flags can be provided in any order. By default, it will output a PNG for each HSV component.
 
 | Flags | Description |
 | ----- | ----------- |

@@ -7,6 +7,8 @@
 struct ProgramConfig {
     bool separateImgWrite = true;
     bool use8BitDepth = true;
+    bool helped = false;
+    bool overwriteOutputFilename = false;
     bool writeJpeg = false;
     int rows, cols;
     int numComps = 3, numChannels = 4;
@@ -18,7 +20,6 @@ struct ProgramConfig {
     std::string listFileName;
 };
 
-// TODO: put this in separate file, set a ProgramConfig struct by reference
 bool parseArgsFailed(int, char **, struct ProgramConfig &);
 
 #endif //HSV_MAPPER_ARG_PARSE_UTILS_H

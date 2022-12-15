@@ -26,7 +26,11 @@
 #include "../utils/log_utils.h"
 #include "../utils/load_shader.h"
 
-#define VERBOSE true
+#define hasElement(x, y) std::find(x.begin(), x.end(), y) != x.end()
+#define doesNotHaveElement(x, y) std::find(x.begin(), x.end(), y) == x.end()
+#define uniformLookup(x) glGetUniformLocation(programId, x)
+
+#define VERBOSE false
 
 ProgramConfig myConfig;
 
@@ -43,8 +47,6 @@ void writeImage(const char *filename, int w, int h, int comp, const GLubyte *dat
 }
 
 void readFramebufferSeparateImgs(const std::vector<VertexBuffer> &buffers, int w, int h, std::vector<int> comps) {
-  std::cout << "numChannels: " << myConfig.numChannels << std::endl;
-
   auto *data = new GLubyte[w * h * myConfig.numChannels];
 
   for (int i = 0; i < buffers.size(); i++) {
@@ -81,7 +83,6 @@ void readFramebufferCollage(unsigned int w, unsigned int h) {
     return;
   }
 
-  // TODO: validate that the filename cannot exceed 256 characters
   char filename[256];
 
   auto fileExt = myConfig.writeJpeg ? "jpeg" : "png";
@@ -107,18 +108,17 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
   if (VERBOSE)
     std::cout << "Processing image " << file << std::endl;
 
-  // TODO: abstract this
-  int w, h, comp;
+  int width, height, comp;
 
-  unsigned char *image = stbi_load(file.c_str(), &w, &h, &comp, STBI_rgb_alpha);
+  unsigned char *image = stbi_load(file.c_str(), &width, &height, &comp, STBI_rgb_alpha);
 
   if (myConfig.separateImgWrite) {
     myConfig.rows = 1;
     myConfig.cols = (int) flagsFromCompList.size();
   }
 
-  std::cout << "width: " << w << ", height: " << h << ", comp: " << comp << std::endl;
-  std::cout << "rows: " << myConfig.rows << ", cols: " << myConfig.cols << std::endl;
+  if (VERBOSE)
+    std::cout << "Image dimensions: " << width << " x " << height << std::endl;
 
   if (!image) {
     if (strcmp(stbi_failure_reason(), "can't fopen") == 0) {
@@ -129,36 +129,34 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
     return IMAGE_LOAD_ERR;
   }
 
-  const auto fullWidth = w * myConfig.cols;
-  const auto fullHeight = h * myConfig.rows;
+  const auto bufferWidth = width * myConfig.cols;
+  const auto bufferHeight = height * myConfig.rows;
 
-  if (fullWidth > MAX_HW_WIDTH_SUPPORTED || fullHeight > MAX_HW_HEIGHT_SUPPORTED) {
-    std::cerr << "Error: the size of the generated framebuffer (" << fullWidth
-              << " x " << fullHeight << ") exceeds this machine's limit (" << MAX_HW_WIDTH_SUPPORTED
+  if (bufferWidth > MAX_HW_WIDTH_SUPPORTED || bufferHeight > MAX_HW_HEIGHT_SUPPORTED) {
+    std::cerr << "Error: the size of the generated framebuffer (" << bufferWidth
+              << " x " << bufferHeight << ") exceeds this machine's limit (" << MAX_HW_WIDTH_SUPPORTED
               << " x " << MAX_HW_HEIGHT_SUPPORTED << ")" << std::endl;
     return MAX_VIEWPORT_SIZE_EXCEEDED;
   }
 
-  glViewport(0, 0, fullWidth, fullHeight);
+  glViewport(0, 0, bufferWidth, bufferHeight);
 
   myConfig.numChannels = comp;
 
   Texture imageTexture, framebufferTexture;
 
-  imageTexture.uploadData(w, h, image);
+  imageTexture.uploadData(width, height, image);
   stbi_image_free(image);
 
-  // Required in OpenGL 3.3 // TODO: double check this
-  unsigned int VAO;
-  glGenVertexArrays(1, &VAO);
-  glBindVertexArray(VAO);
+  unsigned int vao;
+  glGenVertexArrays(1, &vao);
+  glBindVertexArray(vao);
 
-  // TODO: create framebuffer function
   GLuint framebufferTarget;
   glGenFramebuffers(1, &framebufferTarget);
   glBindFramebuffer(GL_FRAMEBUFFER, framebufferTarget);
 
-  framebufferTexture.uploadData(fullWidth, fullHeight, nullptr);
+  framebufferTexture.uploadData(bufferWidth, bufferHeight, nullptr);
 
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferTexture.id, 0);
 
@@ -170,16 +168,16 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
     return FRAMEBUFFER_CREATION_FAILURE;
   }
 
-  auto projMatrix = glm::ortho(0.f, (float) fullWidth, 0.f, (float) fullHeight, 0.0f, 100.0f);
+  auto projMatrix = glm::ortho(0.f, (float) bufferWidth, 0.f, (float) bufferHeight, 0.0f, 100.0f);
   glUniformMatrix4fv(glGetUniformLocation(programId, "MVP"), 1, GL_FALSE, &projMatrix[0][0]);
 
   // Generate buffers
-  std::vector<VertexBuffer> vertexBuffers; // TODO: validate that this is correct
+  std::vector<VertexBuffer> vertexBuffers;
   vertexBuffers.reserve(myConfig.rows * myConfig.cols);
 
   for (int i = 0; i < myConfig.rows; i++) {
     for (int j = 0; j < myConfig.cols; j++) {
-      auto tmp = VertexBuffer(w * j, h * i, w, h);
+      auto tmp = VertexBuffer(width * j, height * i, width, height);
       vertexBuffers.push_back(tmp);
     }
   }
@@ -194,22 +192,22 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
 
     if (VERBOSE)
       std::cout << "Rendering component: " << flagsFromCompList[i] << std::endl;
-    glUniform1f(glGetUniformLocation(programId, "blendRgbComp"), 0.f);
-    glUniform1f(glGetUniformLocation(programId, "blendOrig"), 0.f);
+    glUniform1f(uniformLookup("blendRgbComp"), 0.f);
+    glUniform1f(uniformLookup("blendOrig"), 0.f);
     if (flagsFromCompList[i] == RGB) {
-      glUniform1i(glGetUniformLocation(programId, "compIdx"), 0);
-      glUniform1f(glGetUniformLocation(programId, "blendOrig"), 1.f);
+      glUniform1i(uniformLookup("compIdx"), 0);
+      glUniform1f(uniformLookup("blendOrig"), 1.f);
     } else if (flagsFromCompList[i] < RGB) {
-      glUniform1i(glGetUniformLocation(programId, "compIdx"), flagsFromCompList[i]);
+      glUniform1i(uniformLookup("compIdx"), flagsFromCompList[i]);
     } else {
-      glUniform1i(glGetUniformLocation(programId, "compIdx"), flagsFromCompList[i] - RED);
-      glUniform1f(glGetUniformLocation(programId, "blendRgbComp"), 1.f);
+      glUniform1i(uniformLookup("compIdx"), flagsFromCompList[i] - RED);
+      glUniform1f(uniformLookup("blendRgbComp"), 1.f);
     }
 
     if (myConfig.rows * myConfig.cols > myConfig.numComps && i == vertexBuffers.size() - 1) {
-      glUniform1f(glGetUniformLocation(programId, "alpha"), 0.f);
+      glUniform1f(uniformLookup("alpha"), 0.f);
     } else {
-      glUniform1f(glGetUniformLocation(programId, "alpha"), 1.f);
+      glUniform1f(uniformLookup("alpha"), 1.f);
     }
 
     vertexBuffers[i].bind();
@@ -224,9 +222,9 @@ int processImage(std::string &file, std::vector<int> &flagsFromCompList, GLuint 
   }
 
   if (myConfig.separateImgWrite)
-    readFramebufferSeparateImgs(vertexBuffers, w, h, flagsFromCompList);
+    readFramebufferSeparateImgs(vertexBuffers, width, height, flagsFromCompList);
   else
-    readFramebufferCollage(fullWidth, fullHeight);
+    readFramebufferCollage(bufferWidth, bufferHeight);
 
   glDeleteFramebuffers(1, &framebufferTarget);
   framebufferTexture.free();
@@ -264,26 +262,26 @@ int main(int argc, char **argv) {
   startTimeMs = getTimeMs();
 
   if (parseArgsFailed(argc, argv, myConfig)) {
+    if (!myConfig.helped)
+      std::cout << "\nTry hsv_mapgen --help to view usage guide\n" << std::endl;
     return ARG_PARSE_EXIT;
   }
 
-  auto contextResult = createOpenGlContext();
+  auto created = createOpenGlContext();
 
-  if (contextResult.first != SUCCESS) {
+  if (created.first != SUCCESS) {
     glfwTerminate();
-    return contextResult.first;
+    return created.first;
   }
 
-  auto window = contextResult.second;
+  auto window = created.second;
 
   auto flagsFromCompList = getFlagsFromCompList(myConfig.compList,
                                                 myConfig.numComps);
   if (flagsFromCompList.empty())
     return COMP_FLAGS_UNREADABLE;
 
-  if (std::find(flagsFromCompList.begin(), flagsFromCompList.end(), RGB) != flagsFromCompList.end()) {
-    myConfig.use8BitDepth = false;
-  } else {
+  if (doesNotHaveElement(flagsFromCompList, RGB)) {
     myConfig.numChannels = 1;
   }
 
@@ -336,7 +334,8 @@ int main(int argc, char **argv) {
   glfwDestroyWindow(window);
   glfwTerminate();
 
-  std::cout << "\nProcessing everything took " << (getTimeMs() - startTimeMs) << " ms." << std::endl;
+  if (VERBOSE)
+    std::cout << "\nProcessing everything took " << (getTimeMs() - startTimeMs) << " ms." << std::endl;
 
   return exitReason;
 }

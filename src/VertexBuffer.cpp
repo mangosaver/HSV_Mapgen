@@ -1,14 +1,10 @@
-//
-// Created by Cale on 5/2/2022.
-//
-
 #include <iostream>
 
 #include "VertexBuffer.h"
 
 VertexBuffer::VertexBuffer(uint16_t x, uint16_t y, uint16_t width, uint16_t height) : x(x), y(y) {
   glGenBuffers(1, &id);
-  glBindBuffer(GL_ARRAY_BUFFER, id); // TODO: remove bind call here
+  glBindBuffer(GL_ARRAY_BUFFER, id);
   auto w = (GLfloat) width;
   auto h = (GLfloat) height;
   auto x2 = (GLfloat) x;

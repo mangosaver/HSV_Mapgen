@@ -6,8 +6,7 @@
 
 #include "../shaders/generated.h"
 
-// TODO: inline the shaders at compile time
-const std::string shaderDir = R"(C:\Users\Cale\CLionProjects\HSV_Mapper\shaders\)";
+#define VERBOSE false
 
 GLuint loadShader(int shaderType, const char* shaderSrc) {
   auto shaderId = glCreateShader(shaderType);
@@ -51,7 +50,8 @@ GLuint createShaderProgram() {
   glDeleteShader(compiledFragmentShaderId);
   glDeleteShader(compiledVertexShaderId);
 
-  printf("Shader program created successfully\n");
+  if (VERBOSE)
+    printf("Shader program created successfully\n");
 
   return program;
 }

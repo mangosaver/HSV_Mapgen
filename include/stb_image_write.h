@@ -1,7 +1,3 @@
-//
-// Created by Cale on 2/12/2022.
-//
-
 #ifndef HSV_MAPPER_STB_IMAGE_WRITE_H
 #define HSV_MAPPER_STB_IMAGE_WRITE_H
 

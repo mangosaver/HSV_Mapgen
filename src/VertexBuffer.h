@@ -1,7 +1,3 @@
-//
-// Created by Cale on 5/2/2022.
-//
-
 #ifndef HSV_MAPPER_VERTEXBUFFER_H
 #define HSV_MAPPER_VERTEXBUFFER_H
 

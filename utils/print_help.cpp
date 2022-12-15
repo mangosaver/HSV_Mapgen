@@ -1,9 +1,5 @@
-//
-// Created by Cale on 9/4/2022.
-//
 #include <iostream>
 
-// Prints the program's usage guide
 void printHelp() {
   std::cout << "**********************" << std::endl;
   std::cout << "| HSV Map Maker v1.0 |" << std::endl;
@@ -14,13 +10,13 @@ void printHelp() {
             << "can be configured to produce a single-image collage of all maps.\n"
             << std::endl;
 
-  std::cout << "More at: https://github.com/mangosaver/\n" << std::endl;
+  std::cout << "https://github.com/mangosaver/HSV_Mapgen\n" << std::endl;
 
   std::cout << "Usage: hsv_map -i <image file> [OPTIONS]\n"
-            << "       hsv_map -I <image list file> [OPTIONS]\n"
+            << "       hsv_map -I <text file> [OPTIONS]\n"
             << std::endl;
 
-  std::cout << "Arguments:\n"
+  std::cout << "Arguments:\n\n"
             << "  -i <image file>\t\tThe file name of the image to be processed\n"
             << "  -I <text file>\t\tA text file with a list of images to be batch processed\n"
             << "  -o <output file>\t\tChanges the output filename (for single-image use only)\n"
@@ -29,7 +25,8 @@ void printHelp() {
             << "  \t\t\t\t(Default: [hue:sat:val])\n"
             << "  \t\t\t\tValid components: hue, sat, val, orig\n\n"
             << "  -d, --dimensions <dims>\tCreates a single-image collage with the specified\n"
-            << "  \t\t\t\tdimensions. Must be two numbers separated by an 'x', i.e. 1x3, 2x2, etc.\n\n"
+            << "  \t\t\t\tdimensions. Must be two numbers separated by an 'x', i.e.\n"
+            << "  \t\t\t\t1x3, 2x2, etc. Dimensions are width by height\n\n"
             << "  -j, --jpeg [quality]\t\tOutputs a JPEG with an optional quality level from 1-100\n"
             << "  \t\t\t\t(Default: 100)\n"
             << "\n  \t\t\t\tExample: hsv_map -i painting.png -c [sat;hue;val] -d 1x3\n"

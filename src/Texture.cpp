@@ -1,7 +1,3 @@
-//
-// Created by Cale on 5/20/2022.
-//
-
 #include "Texture.h"
 
 Texture::Texture() {

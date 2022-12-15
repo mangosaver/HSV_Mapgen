@@ -9,12 +9,14 @@
 #include "log_utils.h"
 #include "../glad/glad.h"
 
-std::string getOutputFileName(const std::string &inFile, const struct ProgramConfig &myConfig) {
+std::string getOutputFileName(const std::string &inFile, const struct ProgramConfig &config) {
+  if (config.overwriteOutputFilename) {
+    return stripFileExt(config.outputFile);
+  }
   std::string tmp = stripFileExt(inFile);
-  std::cout << "Stripped to " << tmp << std::endl;
-  if (tmp.empty()) { // handles cases where the input file is ".png" or similar
+  if (tmp.empty()) {
     return getTimestampStr();
-  } else if (!myConfig.separateImgWrite) {
+  } else if (!config.separateImgWrite) {
     tmp += "_" + getTimestampStr();
   }
   return tmp;
