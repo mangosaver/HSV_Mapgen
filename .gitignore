@@ -2,3 +2,7 @@
 /cmake-build-debug/
 .idea
 cmake_install.cmake
+hsv_mapgen
+glad/cmake_install.cmake
+glad/Makefile
+glad/CMakeFiles
