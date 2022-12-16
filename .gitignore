@@ -7,3 +7,5 @@ glad/cmake_install.cmake
 glad/Makefile
 glad/CMakeFiles
 glm/CMakeFiles
+glm/doc
+glfw-3.3.8/docs
