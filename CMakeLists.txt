@@ -11,7 +11,7 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 # Static linking
-set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ ${CMAKE_CXX_STANDARD_LIBRARIES}")
+set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ -static -lpthread ${CMAKE_CXX_STANDARD_LIBRARIES}")
 
 add_subdirectory("glad")
 add_subdirectory("glfw-3.3.8")
