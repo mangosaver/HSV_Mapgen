@@ -3,8 +3,7 @@
 .idea
 cmake_install.cmake
 hsv_mapgen
-glm/doc
-glfw-3.3.8/docsCMakeCache.txt
+CMakeCache.txt
 CMakeFiles
 build
 _deps
