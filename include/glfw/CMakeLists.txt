@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0...3.20 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.31)
 
 project(GLFW VERSION 3.3.8 LANGUAGES C)
 

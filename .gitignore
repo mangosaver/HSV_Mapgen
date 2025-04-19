@@ -3,9 +3,10 @@
 .idea
 cmake_install.cmake
 hsv_mapgen
-glad/cmake_install.cmake
-glad/Makefile
-glad/CMakeFiles
-glm/CMakeFiles
 glm/doc
-glfw-3.3.8/docs
+glfw-3.3.8/docsCMakeCache.txt
+CMakeFiles
+build
+_deps
+Makefile
+src/main.o

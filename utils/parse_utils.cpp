@@ -7,7 +7,7 @@
 #include "parse_utils.h"
 #include "config_utils.h"
 #include "log_utils.h"
-#include "../glad/glad.h"
+#include "glad/glad.h"
 
 std::string getOutputFileName(const std::string &inFile, const struct ProgramConfig &config) {
   if (config.overwriteOutputFilename) {

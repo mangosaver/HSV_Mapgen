@@ -2,7 +2,7 @@
 #define HSV_MAPPER_TEXTURE_H
 
 
-#include "../glad/glad.h"
+#include "glad/glad.h"
 
 class Texture {
 public:
